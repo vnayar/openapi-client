@@ -73,25 +73,66 @@ void generateClassCode(
     put("class " ~ className ~ " {\n");
     // Define individual properties of the class.
     foreach (string propertyName, OasSchema propertySchema; properties) {
-      if (propertySchema.description !is null) {
-        put("  /**\n");
-        foreach (string line; wordWrapText(propertySchema.description, 73)) {
-          put("   * ");
-          put(line);
-          put("\n");
-        }
-        put("   */\n");
-      }
-      put("  ");
       try {
-        put(getCodeType(propertySchema) ~ " " ~ propertyName ~ ";\n\n");
+        generatePropertyInnerClasses(buffer, propertySchema, "  ");
+        generatePropertyCode(buffer, propertyName, propertySchema, "  ");
       } catch (Exception e) {
-        writeln("Error writing className=", className, ", propertyName=", propertyName,
-            ", propertyDescription=", propertySchema.description);
+        writeln("Error writing className=", className);
         throw e;
       }
     }
     put("}\n");
+  }
+}
+
+void generatePropertyCode(
+    Appender!string buffer, string propertyName, OasSchema propertySchema, string prefix = "  ") {
+  if (propertySchema.description !is null) {
+    buffer.put(prefix);
+    buffer.put("/**\n");
+    foreach (string line; wordWrapText(propertySchema.description, 73)) {
+      buffer.put(prefix);
+      buffer.put(" * ");
+      buffer.put(line);
+      buffer.put("\n");
+    }
+    buffer.put(prefix);
+    buffer.put(" */\n");
+  }
+  buffer.put(prefix);
+  try {
+    buffer.put(getCodeType(propertySchema) ~ " " ~ propertyName ~ ";\n\n");
+  } catch (Exception e) {
+    writeln("Error writing propertyName=", propertyName,
+        ", propertyDescription=", propertySchema.description);
+    throw e;
+  }
+}
+
+/**
+ * Some OasSchema types refer to unnamed objects that have a fixed set of
+ * parameters. The best representation of this in D is a named class.
+ *
+ * Most types, like a simple "integer" or "string" will not generate any inner classes, but a few
+ * cases will, such as "object" with a specific set of valid "properties".
+ */
+void generatePropertyInnerClasses(Appender!string buffer, OasSchema schema, string prefix="  ") {
+  if (schema.type == "object" && schema.properties !is null) {
+    if (schema.additionalProperties.type == Json.Type.Undefined
+        || (schema.additionalProperties.type == Json.Type.Bool
+            && schema.additionalProperties.get!bool == false)) {
+      // We will have to make a class/struct out of this type from its name.
+      if (schema.title is null)
+        throw new Exception("Creating a Inner Class for property requires a title!");
+      buffer.put(prefix);
+      buffer.put("static class " ~ schema.title ~ " {\n");
+      foreach (string propertyName, OasSchema propertySchema; schema.properties) {
+        generatePropertyInnerClasses(buffer, propertySchema, prefix ~ "  ");
+        generatePropertyCode(buffer, propertyName, propertySchema, prefix ~ "  ");
+      }
+      buffer.put(prefix);
+      buffer.put("}\n");
+    }
   }
 }
 
