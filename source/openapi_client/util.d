@@ -1,6 +1,6 @@
 module openapi_client.util;
 
-import std.array : array, split;
+import std.array : array, split, appender, Appender;
 import std.algorithm : map, joiner;
 import std.array : appender;
 import std.uni : toUpper, toLower, isUpper, isLower, isAlpha;
@@ -92,4 +92,53 @@ unittest {
   assert(toUpperCamelCase("_ham_on_rye") == "HamOnRye");
   assert(toUpperCamelCase("__ham__on__rye__") == "HamOnRye");
   assert(toUpperCamelCase("3bird_ham") == "3BirdHam");
+}
+
+/**
+ * Given a string with bracket parameters, e.g. "hello/{name}", and an associative array of
+ * parameters, substitute parameter values and return the new string.
+ *
+ * For example, `resolveTemplate("hello/{name}", ["name": "world"]}` would return "hello/world".
+ */
+string resolveTemplate(string urlTemplate, string[string] params) {
+  Appender!string buf = appender!string();
+  Appender!string param = appender!string();
+  bool inParam = false;
+  foreach (char c; urlTemplate) {
+    if (!inParam) {
+      if (c == '{') {
+        inParam = true;
+        param = appender!string();
+      } else if (c == '}') {
+        throw new Exception("\"" ~ urlTemplate ~ "\": Unbalanced braces!");
+      } else {
+        buf.put(c);
+      }
+    } else {
+      if (c == '{') {
+        throw new Exception("\"" ~ urlTemplate ~ "\": Unbalanced braces!");
+      } else if (c == '}') {
+        inParam = false;
+        string* val = param[] in params;
+        if (val is null) {
+          throw new Exception("\"" ~ urlTemplate ~ "\": Missing value for parameter '"
+              ~ param[] ~ "'!");
+        }
+        buf.put(*val);
+      } else {
+        param.put(c);
+      }
+    }
+  }
+  return buf[];
+}
+
+unittest {
+  import std.exception;
+
+  assert(resolveTemplate("hello/{name}", ["name": "world"]) == "hello/world");
+  assert(resolveTemplate("{name}/{fish}/{name}", ["name": "world", "fish": "carp"])
+      == "world/carp/world");
+  assertThrown!Exception(resolveTemplate("abc{def{hij}", ["def": "ham"]));
+  assertThrown!Exception(resolveTemplate("ab}c{def}", ["def": "ham"]));
 }

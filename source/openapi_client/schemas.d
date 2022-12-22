@@ -59,6 +59,11 @@ string getSchemaNameFromRef(string ref_) {
   return schemaName;
 }
 
+/**
+ * Generates and writes to disk D-language files that correspond to the OpenAPI Document's
+ * components/schemas data. Depending on the software architecture ideas being used, such
+ * files can be known as "model" or "dto" files.
+ */
 void writeSchemaFiles(OasDocument oasDocument, string targetDir, string packageName) {
   foreach (string schemaName, OasSchema schema; oasDocument.components.schemas) {
     JsonSchema jsonSchema = new JsonSchema();
@@ -186,7 +191,7 @@ class ModuleCodeGenerator {
     with (buffer) {
       // Display the class description and declare it.
       put("/**\n");
-      foreach (string line; wordWrapText(description, 75)) {
+      foreach (string line; wordWrapText(description, 95)) {
         put(" * ");
         put(line);
         put("\n");
@@ -215,7 +220,7 @@ class ModuleCodeGenerator {
     if (propertySchema.description !is null) {
       buffer.put(prefix);
       buffer.put("/**\n");
-      foreach (string line; wordWrapText(propertySchema.description, 73)) {
+      foreach (string line; wordWrapText(propertySchema.description, 93)) {
         buffer.put(prefix);
         buffer.put(" * ");
         buffer.put(line);

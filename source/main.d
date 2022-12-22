@@ -7,6 +7,8 @@ import std.stdio : writeln, File;
 import std.algorithm : min;
 
 import openapi_client.schemas : writeSchemaFiles;
+import openapi_client.servers : writeServerFiles;
+import openapi_client.paths : writePathFiles;
 import openapi_client.util;
 
 void main() {
@@ -14,7 +16,9 @@ void main() {
       .parseJsonString()
       .deserializeJson!OasDocument;
 
-  writeSchemaFiles(oasDocument, "source", "stripe.client");
+  writeSchemaFiles(oasDocument, "source", "stripe.model");
+  writeServerFiles(oasDocument, "source", "stripe");
+  writePathFiles(oasDocument, "source", "stripe.service");
 
   ////
   // Iterate Paths and Operations
