@@ -15,7 +15,7 @@ import std.conv : to;
 
 import openapi : OasDocument, OasPathItem, OasOperation, OasParameter, OasMediaType, OasRequestBody;
 import openapi_client.schemas : generateSchemaInnerClasses, getSchemaCodeType, getVariableName;
-import openapi_client.util : toUpperCamelCase, wordWrapText;
+import openapi_client.util : toUpperCamelCase, toLowerCamelCase, wordWrapText;
 
 struct PathEntry {
   string path;
@@ -106,6 +106,8 @@ void generatePathItemMethods(
     foreach (OperationEntry operationEntry; operationEntries) {
       if (operationEntry.operation is null)
         continue;
+      string requestParamType =
+          generateRequestParamType(buffer, operationEntry, prefix);
       // The request body type might need to be defined, so that it may be used as an argument to
       // the function that actually performs the request.
       RequestBodyType requestBodyType =
@@ -122,16 +124,21 @@ void generatePathItemMethods(
       }
       put(prefix);
       put(" */\n");
-      put(prefix ~ "void " ~ operationEntry.operation.operationId ~ "(\n");
+      put(prefix ~ "void " ~ operationEntry.operation.operationId.toLowerCamelCase() ~ "(\n");
+
       // Put the parameters as function arguments.
-      foreach (OasParameter parameter; operationEntry.operation.parameters) {
+      if (requestParamType !is null) {
         put(prefix ~ "    ");
-        if (parameter.schema !is null)
-          put(getSchemaCodeType(parameter.schema, null));
-        else
-          put("string");
-        put(" " ~ getVariableName(parameter.name) ~ ",\n");
+        put(requestParamType);
+        put(" params,\n");
       }
+
+      // Put the requestBody (if present) argument.
+      if (requestBodyType !is null) {
+        put(prefix ~ "    ");
+        put(requestBodyType.codeType ~ " requestBody,\n");
+      }
+
       put(prefix ~ "    ) {\n");
       // Update the HTTPClientRequest to match the OasOperation.
       // Call requestHTTP with the correct URL.
@@ -163,21 +170,16 @@ class RequestBodyType {
 
 RequestBodyType generateRequestBodyType(
     Appender!string buffer, OperationEntry operationEntry, string prefix = "  ") {
-  // TODO: Resume here.
-  writeln("generateRequestBodyType 0:");
   if (operationEntry.operation.requestBody is null)
     return null;
-  writeln("generateRequestBodyType 0.1:");
   OasRequestBody requestBody = operationEntry.operation.requestBody;
   if (requestBody.required == false)
     return null;
-  writeln("generateRequestBodyType 0.2:");
 
   string contentType;
   OasMediaType mediaType;
   // Take the first defined content type, it is unclear how to resolve multiple types.
   foreach (pair; requestBody.content.byKeyValue()) {
-    writeln("generateRequestBodyType 0.3:");
     contentType = pair.key;
     mediaType = pair.value;
     break;
@@ -185,17 +187,14 @@ RequestBodyType generateRequestBodyType(
 
   // TODO: Figure out what to do with `mediaType.encoding`
 
-  writeln("generateRequestBodyType 1:");
-  string defaultRequestBodyTypeName = operationEntry.method.capitalize().to!string ~ "RequestBody";
+  string defaultRequestBodyTypeName = operationEntry.operation.operationId ~ "Body";
   RequestBodyType requestBodyType = new RequestBodyType();
   requestBodyType.contentType = contentType;
   requestBodyType.codeType = getSchemaCodeType(mediaType.schema, defaultRequestBodyTypeName);
   requestBodyType.mediaType = mediaType;
 
-  writeln("generateRequestBodyType 2:");
   generateSchemaInnerClasses(buffer, mediaType.schema, prefix, defaultRequestBodyTypeName);
 
-  writeln("generateRequestBodyType 3:");
   return requestBodyType;
 }
 
@@ -214,4 +213,30 @@ void generatePathParameter(Appender!string buffer, OasParameter parameter, strin
 
 void generateModuleFooter(Appender!string buffer) {
   buffer.put("}\n");
+}
+
+string generateRequestParamType(
+    Appender!string buffer, OperationEntry operationEntry, string prefix = "  ") {
+  OasParameter[] parameters = operationEntry.operation.parameters;
+  if (parameters is null || parameters.length == 0)
+    return null;
+  string className = operationEntry.operation.operationId ~ "Params";
+  buffer.put(prefix ~ "static class " ~ className ~ "{\n");
+  foreach (OasParameter parameter; operationEntry.operation.parameters) {
+    buffer.put(prefix ~ "  /**\n");
+    foreach (string line; wordWrapText(parameter.description, 95)) {
+      buffer.put(prefix ~ "   * ");
+      buffer.put(line);
+      buffer.put("\n");
+    }
+    buffer.put(prefix ~ "   */\n");
+    buffer.put(prefix ~ "  ");
+    if (parameter.schema !is null)
+      buffer.put(getSchemaCodeType(parameter.schema, null));
+    else
+      buffer.put("string");
+    buffer.put(" " ~ getVariableName(parameter.name) ~ ";\n\n");
+  }
+  buffer.put(prefix ~ "}\n\n");
+  return className;
 }

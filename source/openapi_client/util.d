@@ -3,7 +3,7 @@ module openapi_client.util;
 import std.array : array, split, appender, Appender;
 import std.algorithm : map, joiner;
 import std.array : appender;
-import std.uni : toUpper, toLower, isUpper, isLower, isAlpha;
+import std.uni : toUpper, toLower, isUpper, isLower, isAlpha, isAlphaNum;
 
 /**
  * Given a block of text, first split it using the "\n" escape, and then word-wrap each line.
@@ -66,14 +66,53 @@ unittest {
 
 /// Converts a string in "snake_case" to "UpperCamelCase".
 string toUpperCamelCase(string input) {
+  return toCamelCase(input, true);
+}
+
+unittest {
+  assert(toUpperCamelCase("HamOnRye") == "HamOnRye");
+  assert(toUpperCamelCase("hamOnRye") == "HamOnRye");
+  assert(toUpperCamelCase("ham_On_Rye") == "HamOnRye");
+  assert(toUpperCamelCase("ham_on_rye") == "HamOnRye");
+  assert(toUpperCamelCase("ham.on.rye") == "HamOnRye");
+  assert(toUpperCamelCase("_ham_on_rye") == "HamOnRye");
+  assert(toUpperCamelCase("__ham__on__rye__") == "HamOnRye");
+  assert(toUpperCamelCase("3bird_ham") == "3BirdHam");
+}
+
+/// Converts a string in "snake_case" to "lowerCamelCase".
+string toLowerCamelCase(string input) {
+  return toCamelCase(input, false);
+}
+
+unittest {
+  assert(toLowerCamelCase("HamOnRye") == "hamOnRye");
+  assert(toLowerCamelCase("hamOnRye") == "hamOnRye");
+  assert(toLowerCamelCase("ham_On_Rye") == "hamOnRye");
+  assert(toLowerCamelCase("ham_on_rye") == "hamOnRye");
+  assert(toLowerCamelCase("ham.on.rye") == "hamOnRye");
+  assert(toLowerCamelCase("_ham_on_rye") == "hamOnRye");
+  assert(toLowerCamelCase("__ham__on__rye__") == "hamOnRye");
+  assert(toLowerCamelCase("3bird_ham") == "3BirdHam");
+}
+
+string toCamelCase(string input, bool firstCapital = true) {
   auto str = appender!string();
-  bool newWord = true;
-  foreach (c; input) {
-    if (c == '_') {
+  size_t firstPos = 0;
+  while (!isAlphaNum(input[firstPos])) {
+    firstPos++;
+  }
+  if (firstCapital)
+    str.put(toUpper(input[firstPos]));
+  else
+    str.put(toLower(input[firstPos]));
+  bool newWord = !isAlpha(input[firstPos]);
+  foreach (c; input[firstPos + 1 .. $]) {
+    if (!isAlphaNum(c)) {
       newWord = true;
     } else if (!isAlpha(c)) {
-      str.put(c);
       newWord = true;
+      str.put(c);
     } else if (newWord == true || isUpper(c)) {
       str.put(toUpper(c));
       newWord = false;
@@ -82,16 +121,6 @@ string toUpperCamelCase(string input) {
     }
   }
   return str[];
-}
-
-unittest {
-  assert(toUpperCamelCase("HamOnRye") == "HamOnRye");
-  assert(toUpperCamelCase("hamOnRye") == "HamOnRye");
-  assert(toUpperCamelCase("ham_On_Rye") == "HamOnRye");
-  assert(toUpperCamelCase("ham_on_rye") == "HamOnRye");
-  assert(toUpperCamelCase("_ham_on_rye") == "HamOnRye");
-  assert(toUpperCamelCase("__ham__on__rye__") == "HamOnRye");
-  assert(toUpperCamelCase("3bird_ham") == "3BirdHam");
 }
 
 /**
