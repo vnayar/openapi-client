@@ -9,6 +9,7 @@ import std.algorithm : min;
 import openapi_client.schemas : writeSchemaFiles;
 import openapi_client.servers : writeServerFiles;
 import openapi_client.paths : writePathFiles;
+import openapi_client.apirequest : writeApiRequestFiles;
 import openapi_client.util;
 
 void main() {
@@ -18,6 +19,7 @@ void main() {
 
   writeSchemaFiles(oasDocument, "source", "stripe");
   writeServerFiles(oasDocument, "source", "stripe");
+  writeApiRequestFiles("source", "stripe");
   writePathFiles(oasDocument, "source", "stripe");
 
   ////

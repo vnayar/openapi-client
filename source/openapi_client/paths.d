@@ -116,6 +116,10 @@ void generateModuleHeader(
     put("import vibe.data.json : Json, deserializeJson;\n");
     put("\n");
     put("import " ~ packageRoot ~ ".servers : Servers;\n");
+    put("import openapi_client.apirequest : ApiRequest;\n");
+    put("\n");
+    put("import std.conv : to;\n");
+    put("import std.stdio;\n");
     put("\n");
   }
 }
@@ -179,20 +183,26 @@ void generatePathItemMethods(
       }
 
       put(prefix ~ "    ) {\n");
-      // Update the HTTPClientRequest to match the OasOperation.
-      // Call requestHTTP with the correct URL.
-      put(prefix ~ "  requestHTTP(\n");
-      put(prefix ~ "      ");
-      put(pathItem.servers !is null ? "\"" ~ pathItem.servers[0].url ~ "\"" : "Servers.getServerUrl()");
-      put(",\n");
-      put(prefix ~ "      (scope HTTPClientRequest req) {\n");
-      put(prefix ~ "        req.method = HTTPMethod." ~ operationEntry.method ~ ";\n");
-      //foreach (OasParameter parameter; operationEntry.operation.parameters) {
-      //  generatePathParameter(buffer, parameter, prefix ~ "        ");
-      //}
-      put(prefix ~ "      },\n");
-      put(prefix ~ "      (scope HTTPClientResponse res) {\n");
-      put(prefix ~ "      });\n");
+      put(prefix ~ "  ApiRequest requestor = new ApiRequest(\n");
+      put(prefix ~ "      HTTPMethod." ~ operationEntry.method ~ ",\n");
+      put(prefix ~ "      " ~ (pathItem.servers !is null
+          ? "\"" ~ pathItem.servers[0].url ~ "\"" : "Servers.getServerUrl()") ~ ",\n");
+      put(prefix ~ "      \"" ~ path ~ "\");\n");
+      foreach (OasParameter parameter; operationEntry.operation.parameters) {
+        string setterMethod;
+        if (parameter.in_ == "query") {
+          setterMethod = "setQueryParam";
+        } else if (parameter.in_ == "header") {
+          setterMethod = "setHeaderParam";
+        } else if (parameter.in_ == "path") {
+          setterMethod = "setPathParam";
+        } else if (parameter.in_ == "cookie") {
+          setterMethod = "setCookieParam";
+        }
+        put(prefix ~ "  requestor." ~ setterMethod ~ "(\"" ~ parameter.name ~ "\", params."
+            ~ getVariableName(parameter.name) ~ ".to!string);\n");
+      }
+      put(prefix ~ "  requestor.makeRequest(null, (Json res) { writeln(res); });\n");
       put(prefix ~ "}\n\n");
     }
   }
@@ -235,19 +245,6 @@ RequestBodyType generateRequestBodyType(
   generateSchemaInnerClasses(buffer, mediaType.schema, prefix, defaultRequestBodyTypeName);
 
   return requestBodyType;
-}
-
-/**
- * In the OpenAPI Specification, parameters are values that are sent with the request in either the
- * query-string, a header, in the path, or in a cookie. They do not include values sent with the
- * request that are in the request body.
- */
-void generatePathParameter(Appender!string buffer, OasParameter parameter, string prefix) {
-  if (parameter.in_ == "query") {
-    // TODO: Resume here.
-  } else {
-    throw new Exception("Unsupported parameter.in type '" ~ parameter.in_ ~ "'!");
-  }
 }
 
 void generateModuleFooter(Appender!string buffer) {
