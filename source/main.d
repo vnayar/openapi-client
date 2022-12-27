@@ -16,9 +16,9 @@ void main() {
       .parseJsonString()
       .deserializeJson!OasDocument;
 
-  writeSchemaFiles(oasDocument, "source", "stripe.model");
+  writeSchemaFiles(oasDocument, "source", "stripe");
   writeServerFiles(oasDocument, "source", "stripe");
-  writePathFiles(oasDocument, "source", "stripe.service");
+  writePathFiles(oasDocument, "source", "stripe");
 
   ////
   // Iterate Paths and Operations

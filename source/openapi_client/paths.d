@@ -14,7 +14,7 @@ import std.regex : regex, replaceAll;
 import std.conv : to;
 
 import openapi : OasDocument, OasPathItem, OasOperation, OasParameter, OasMediaType, OasRequestBody;
-import openapi_client.schemas : generateSchemaInnerClasses, getSchemaCodeType, getVariableName;
+import openapi_client.schemas;
 import openapi_client.util : toUpperCamelCase, toLowerCamelCase, wordWrapText;
 
 struct PathEntry {
@@ -29,7 +29,7 @@ struct PathEntry {
  *
  * See_Also: https://swagger.io/specification/#paths-object
  */
-void writePathFiles(OasDocument oasDocument, string targetDir, string packageName) {
+void writePathFiles(OasDocument oasDocument, string targetDir, string packageRoot) {
   // Rather than giving every path a separate class, group them by common URLs.
   PathEntry[][string] pathEntriesByPathRoot;
   foreach (string path, OasPathItem pathItem; oasDocument.paths) {
@@ -46,7 +46,14 @@ void writePathFiles(OasDocument oasDocument, string targetDir, string packageNam
     writeln("Generating service for ", pathRoot, " with ", pathEntries.length, " path items.");
     auto buffer = appender!string();
     string moduleName = pathRoot[1..$].tr("/", "_") ~ "_service";
-    generateModuleHeader(buffer, packageName, moduleName, pathRoot);
+    generateModuleHeader(buffer, packageRoot, moduleName, pathRoot);
+    generateModuleImports(buffer, pathEntries, pathRoot);
+    // TODO: Generate imports that originate from the data types created here.
+    buffer.put("/**\n");
+    buffer.put(" * Service to make REST API calls to paths beginning with: " ~ pathRoot ~ "\n");
+    buffer.put(" */\n");
+    string className = moduleName.toUpperCamelCase();
+    buffer.put("class " ~ className ~ " {\n");
     foreach (PathEntry pathEntry; pathEntries) {
       writeln("  - Generating methods for ", pathEntry.path);
       generatePathItemMethods(buffer, pathEntry.path, pathEntry.pathItem);
@@ -54,10 +61,43 @@ void writePathFiles(OasDocument oasDocument, string targetDir, string packageNam
     generateModuleFooter(buffer);
 
     string fileName =
-        buildNormalizedPath(targetDir, tr(packageName ~ "." ~ moduleName, ".", "/") ~ ".d");
+        buildNormalizedPath(targetDir, tr(packageRoot ~ ".service." ~ moduleName, ".", "/") ~ ".d");
     writeln("Writing file: ", fileName);
     mkdirRecurse(dirName(fileName));
     write(fileName, buffer[]);
+  }
+}
+
+void generateModuleImports(Appender!string buffer, PathEntry[] pathEntries, string packageRoot) {
+  RedBlackTree!string refs = new RedBlackTree!string();
+  foreach (PathEntry pathEntry; pathEntries) {
+    foreach (OperationEntry entry; getPathItemOperationEntries(pathEntry.pathItem)) {
+      if (entry.operation is null)
+        continue;
+      foreach (OasParameter parameter; entry.operation.parameters) {
+        getSchemaReferences(parameter.schema, refs);
+      }
+      OasRequestBody requestBody = entry.operation.requestBody;
+      if (requestBody !is null && requestBody.required == true) {
+        OasMediaType mediaType;
+        foreach (pair; requestBody.content.byKeyValue()) {
+          mediaType = pair.value;
+        }
+        if (mediaType !is null)
+          getSchemaReferences(mediaType.schema);
+      }
+    }
+  }
+
+  foreach (string schemaRef; refs) {
+    string schemaName = getSchemaNameFromRef(schemaRef);
+    with (buffer) {
+      put("import ");
+      put(getModuleNameFromSchemaName(packageRoot, schemaName));
+      put(" : ");
+      put(getClassNameFromSchemaName(schemaName));
+      put(";\n");
+    }
   }
 }
 
@@ -65,23 +105,18 @@ void writePathFiles(OasDocument oasDocument, string targetDir, string packageNam
  * Writes the beginning of a class file for a service that can access a REST API.
  */
 void generateModuleHeader(
-    Appender!string buffer, string packageName, string moduleName, string pathRoot) {
-  string className = moduleName.toUpperCamelCase();
+    Appender!string buffer, string packageRoot, string moduleName, string pathRoot) {
   with (buffer) {
     put("// File automatically generated from OpenAPI spec.\n");
-    put("module " ~ packageName ~ "." ~ moduleName ~ ";\n");
+    put("module " ~ packageRoot ~ ".service." ~ moduleName ~ ";\n");
     put("\n");
     put("import vibe.http.client : requestHTTP, HTTPClientRequest, HTTPClientResponse;\n");
     put("import vibe.http.common : HTTPMethod;\n");
     put("import vibe.stream.operations : readAllUTF8;\n");
+    put("import vibe.data.json : Json, deserializeJson;\n");
     put("\n");
-    put("import " ~ packageName ~ ".servers : Servers;\n");
+    put("import " ~ packageRoot ~ ".servers : Servers;\n");
     put("\n");
-    // TODO: Generate imports that originate from the data types created here.
-    put("/**\n");
-    put(" * Service to make REST API calls to paths beginning with: " ~ pathRoot ~ "\n");
-    put(" */\n");
-    put("class " ~ className ~ " {\n");
   }
 }
 
@@ -90,9 +125,8 @@ struct OperationEntry {
   OasOperation operation;
 }
 
-void generatePathItemMethods(
-    Appender!string buffer, string path, OasPathItem pathItem, string prefix = "  ") {
-  OperationEntry[] operationEntries = [
+OperationEntry[] getPathItemOperationEntries(OasPathItem pathItem) {
+  return [
       OperationEntry("GET", pathItem.get),
       OperationEntry("PUT", pathItem.put),
       OperationEntry("POST", pathItem.post),
@@ -102,6 +136,11 @@ void generatePathItemMethods(
       OperationEntry("PATCH", pathItem.patch),
       OperationEntry("TRACE", pathItem.trace),
     ];
+}
+
+void generatePathItemMethods(
+    Appender!string buffer, string path, OasPathItem pathItem, string prefix = "  ") {
+  OperationEntry[] operationEntries = getPathItemOperationEntries(pathItem);
   with (buffer) {
     foreach (OperationEntry operationEntry; operationEntries) {
       if (operationEntry.operation is null)
@@ -230,11 +269,14 @@ string generateRequestParamType(
       buffer.put("\n");
     }
     buffer.put(prefix ~ "   */\n");
-    buffer.put(prefix ~ "  ");
-    if (parameter.schema !is null)
+    if (parameter.schema !is null) {
+      generateSchemaInnerClasses(buffer, parameter.schema, prefix ~ "  ");
+      buffer.put(prefix ~ "  ");
       buffer.put(getSchemaCodeType(parameter.schema, null));
-    else
+    } else {
+      buffer.put(prefix ~ "  ");
       buffer.put("string");
+    }
     buffer.put(" " ~ getVariableName(parameter.name) ~ ";\n\n");
   }
   buffer.put(prefix ~ "}\n\n");

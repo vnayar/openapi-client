@@ -11,9 +11,9 @@ import openapi_client.util : wordWrapText, toUpperCamelCase;
 /**
  * Writes a utility class containing information about the REST API servers to contact.
  */
-void writeServerFiles(OasDocument oasDocument, string targetDir, string packageName) {
+void writeServerFiles(OasDocument oasDocument, string targetDir, string packageRoot) {
   auto buffer = appender!string();
-  string moduleName = packageName ~ ".servers";
+  string moduleName = packageRoot ~ ".servers";
   with (buffer) {
     put("// File automatically generated from OpenAPI spec.\n");
     put("module " ~ moduleName ~ ";\n\n");
