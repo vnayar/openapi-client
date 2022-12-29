@@ -9,7 +9,6 @@ import vibe.textfilter.urlencode : urlEncode;
 import std.algorithm : map;
 import std.array : join;
 
-import stripe.servers : Servers;
 import openapi_client.util : resolveTemplate;
 
 /**

@@ -2,6 +2,7 @@ import openapi : OasDocument, OasPathItem, OasOperation, OasParameter;
 import vibe.data.json : Json, parseJsonString, deserializeJson;
 import vibe.http.client : requestHTTP, HTTPClientRequest, HTTPClientResponse, HTTPClientSettings;
 import vibe.http.common : HTTPMethod, HTTPStatusException;
+import vibe.core.args : readOption, finalizeCommandLineOptions;
 import std.file : readText;
 import std.stdio : writeln, File;
 import std.algorithm : min;
@@ -9,69 +10,28 @@ import std.algorithm : min;
 import openapi_client.schemas : writeSchemaFiles;
 import openapi_client.servers : writeServerFiles;
 import openapi_client.paths : writePathFiles;
-import openapi_client.apirequest : writeApiRequestFiles;
+import openapi_client.security : writeSecurityFiles;
 import openapi_client.util;
 
 void main() {
-  OasDocument oasDocument = readText("json/spec3.json")
+  string openApiSpec = "json/spec3.json";
+  readOption("openApiSpec|o", &openApiSpec,
+      "The path to a JSON-formatted OpenAPI Specification to generate a client for. Default: json/spec3.json");
+  string targetDir = "source";
+  readOption("targetDir|t", &targetDir,
+      "The target directory in which to generate source files. Default: source");
+  string packageRoot = "apiclient";
+  readOption("packageRoot|p", &packageRoot,
+      "The package name under which to generate a client. Default: apiclient");
+  if (!finalizeCommandLineOptions())
+    return;
+
+  OasDocument oasDocument = readText(openApiSpec)
       .parseJsonString()
       .deserializeJson!OasDocument;
 
-  writeSchemaFiles(oasDocument, "source", "stripe");
-  writeServerFiles(oasDocument, "source", "stripe");
-  writeApiRequestFiles("source", "stripe");
-  writePathFiles(oasDocument, "source", "stripe");
-
-  ////
-  // Iterate Paths and Operations
-  ////
-  // foreach (string path, OasPathItem pathItem; oasDocument.paths) {
-  //   writeln("Found path: ", path);
-  //   if (pathItem.get !is null) {
-  //     OasOperation op = pathItem.get;
-  //     writeln("  /**");
-  //     foreach (string line; wordWrapText(op.description, 70)) {
-  //       writeln("   * " ~ line);
-  //     }
-  //     if (op.parameters.length > 0) {
-  //       writeln("   *");
-  //       writeln("   * Params:");
-  //       foreach (OasParameter parameter; op.parameters) {
-  //         string[] descriptionLines = [""];
-  //         if (parameter.description != null) {
-  //           descriptionLines = wordWrapText(parameter.description, 65);
-  //         }
-  //         writeln("   *   ", parameter.name, " = ", descriptionLines[0]);
-  //         for (size_t i = 1; i < descriptionLines.length; i++) {
-  //           writeln("   *     ", descriptionLines[i]);
-  //         }
-  //       }
-  //     }
-  //     writeln("   */");
-  //     writeln("  void ", op.operationId, "(");
-  //     writeln("  ) {");
-  //     writeln("    requestHTTP(\"", path, "\",");
-  //     writeln("        (scope req) {");
-  //     writeln("          req.method = HTTPMethod.GET;");
-  //     writeln("  }");
-  //   }
-  //   if (pathItem.put !is null) {
-  //     OasOperation op = pathItem.put;
-  //   }
-  //   if (pathItem.post !is null) {
-  //     OasOperation op = pathItem.post;
-  //   }
-  //   if (pathItem.delete_ !is null) {
-  //     OasOperation op = pathItem.delete_;
-  //   }
-  //   if (pathItem.options !is null) {
-  //     OasOperation op = pathItem.options;
-  //   }
-  //   if (pathItem.head !is null) {
-  //     OasOperation op = pathItem.head;
-  //   }
-  //   if (pathItem.trace !is null) {
-  //     OasOperation op = pathItem.trace;
-  //   }
-  // }
+  writeSchemaFiles(oasDocument, targetDir, packageRoot);
+  writeServerFiles(oasDocument, targetDir, packageRoot);
+  writeSecurityFiles(oasDocument, targetDir, packageRoot);
+  writePathFiles(oasDocument, targetDir, packageRoot);
 }

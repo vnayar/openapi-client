@@ -116,6 +116,7 @@ void generateModuleHeader(
     put("import vibe.data.json : Json, deserializeJson;\n");
     put("\n");
     put("import " ~ packageRoot ~ ".servers : Servers;\n");
+    put("import " ~ packageRoot ~ ".security : Security;\n");
     put("import openapi_client.apirequest : ApiRequest;\n");
     put("\n");
     put("import std.conv : to;\n");
@@ -202,6 +203,7 @@ void generatePathItemMethods(
         put(prefix ~ "  requestor." ~ setterMethod ~ "(\"" ~ parameter.name ~ "\", params."
             ~ getVariableName(parameter.name) ~ ".to!string);\n");
       }
+      put(prefix ~ "  Security.apply(requestor);\n");
       put(prefix ~ "  requestor.makeRequest(null, (Json res) { writeln(res); });\n");
       put(prefix ~ "}\n\n");
     }
