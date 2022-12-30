@@ -6,10 +6,27 @@ import std.array : appender;
 import std.uni : toUpper, toLower, isUpper, isLower, isAlpha, isAlphaNum;
 
 /**
+ * Converts a long text into a a D-style comment block and writes it to a buffer.
+ */
+void writeCommentBlock(
+    Appender!string buffer, string text, string prefix = "", size_t lineWidth = 100) {
+  size_t width = lineWidth - prefix.length - 3;
+  with (buffer) {
+    put(prefix ~ "/**\n");
+    foreach (string line; wordWrapText(text, width)) {
+      put(prefix ~ " * ");
+      put(line);
+      put("\n");
+    }
+    put(prefix ~ " */\n");
+  }
+}
+
+/**
  * Given a block of text, first split it using the "\n" escape, and then word-wrap each line.
  */
-string[] wordWrapText(string text, size_t width = 80, char sep = ' ') {
-  return text.split("\n").map!(line => wordWrapLine(line, width, sep)).joiner().array;
+string[] wordWrapText(string text, size_t lineWidth = 80, char sep = ' ') {
+  return text.split("\n").map!(line => wordWrapLine(line, lineWidth, sep)).joiner().array;
 }
 
 /**
@@ -17,26 +34,26 @@ string[] wordWrapText(string text, size_t width = 80, char sep = ' ') {
  *
  * Params:
  *   text = The long line of text to split into lines.
- *   width = The maximum length of a line.
+ *   lineWidth = The maximum length of a line.
  *   sep = The separator character that can be used for word-wrapping.
  */
-string[] wordWrapLine(string text, size_t width = 80, char sep = ' ') {
+string[] wordWrapLine(string text, size_t lineWidth = 80, char sep = ' ') {
   string[] results;
   size_t start = 0;
   while (start < text.length) {
     size_t end;
-    if (start + width >= text.length) {
+    if (start + lineWidth >= text.length) {
       // There's not enough text for a full line, take what's there.
       end = text.length;
     } else {
-      end = start + width;
+      end = start + lineWidth;
       // Find the closest separator character to split the line.
       while (text[end] != sep && end > start) {
         end--;
       }
       // There may be no separator characters at all.
       if (start == end) {
-        end = start + width;
+        end = start + lineWidth;
       }
     }
     results ~= text[start..end];

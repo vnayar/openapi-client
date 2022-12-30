@@ -18,6 +18,7 @@ void writeServerFiles(OasDocument oasDocument, string targetDir, string packageR
     put("// File automatically generated from OpenAPI spec.\n");
     put("module " ~ moduleName ~ ";\n\n");
     put("import openapi_client.util : resolveTemplate;\n");
+    put("import std.stdio : writeln;\n");
     put("\n");
     put("class Servers {\n");
     // For now, only support a single URL, because it is unclear what to do if each server has
@@ -67,6 +68,8 @@ void writeServerFiles(OasDocument oasDocument, string targetDir, string packageR
     put("   * Chooses a url an OasPathItem given both path-specific and general servers.\n");
     put("   */\n");
     put("  static string getServerUrl() {\n");
+    put("    writeln(\"getServerUrl 0: serverUrl=\", serverUrl);\n");
+    put("    writeln(\"getServerUrl 1: resolve=\", resolveTemplate(serverUrl, serverParams));\n");
     put("    return resolveTemplate(serverUrl, serverParams);\n");
     put("  }\n\n");
     put("}\n");

@@ -13,9 +13,9 @@ import std.stdio : writeln;
 import std.regex : regex, replaceAll;
 import std.conv : to;
 
-import openapi : OasDocument, OasPathItem, OasOperation, OasParameter, OasMediaType, OasRequestBody;
+import openapi : OasDocument, OasPathItem, OasOperation, OasParameter, OasMediaType, OasRequestBody, OasResponse;
 import openapi_client.schemas;
-import openapi_client.util : toUpperCamelCase, toLowerCamelCase, wordWrapText;
+import openapi_client.util : toUpperCamelCase, toLowerCamelCase, wordWrapText, writeCommentBlock;
 
 struct PathEntry {
   string path;
@@ -46,8 +46,8 @@ void writePathFiles(OasDocument oasDocument, string targetDir, string packageRoo
     writeln("Generating service for ", pathRoot, " with ", pathEntries.length, " path items.");
     auto buffer = appender!string();
     string moduleName = pathRoot[1..$].tr("/", "_") ~ "_service";
-    generateModuleHeader(buffer, packageRoot, moduleName, pathRoot);
-    generateModuleImports(buffer, pathEntries, pathRoot);
+    generateModuleHeader(buffer, packageRoot, moduleName);
+    generateModuleImports(buffer, pathEntries, packageRoot);
     // TODO: Generate imports that originate from the data types created here.
     buffer.put("/**\n");
     buffer.put(" * Service to make REST API calls to paths beginning with: " ~ pathRoot ~ "\n");
@@ -68,23 +68,39 @@ void writePathFiles(OasDocument oasDocument, string targetDir, string packageRoo
   }
 }
 
+/**
+ * Dive through the PathEntries and extract a list of needed imports.
+ */
 void generateModuleImports(Appender!string buffer, PathEntry[] pathEntries, string packageRoot) {
   RedBlackTree!string refs = new RedBlackTree!string();
   foreach (PathEntry pathEntry; pathEntries) {
     foreach (OperationEntry entry; getPathItemOperationEntries(pathEntry.pathItem)) {
       if (entry.operation is null)
         continue;
+      // Add any types connected to path/header/query/cookie parameters.
       foreach (OasParameter parameter; entry.operation.parameters) {
         getSchemaReferences(parameter.schema, refs);
       }
+      // Add any types connected to the request.
       OasRequestBody requestBody = entry.operation.requestBody;
       if (requestBody !is null && requestBody.required == true) {
         OasMediaType mediaType;
         foreach (pair; requestBody.content.byKeyValue()) {
           mediaType = pair.value;
         }
-        if (mediaType !is null)
-          getSchemaReferences(mediaType.schema);
+        if (mediaType.schema !is null)
+          getSchemaReferences(mediaType.schema, refs);
+      }
+      // Add any types connected to the response.
+      foreach (pair; entry.operation.responses.byKeyValue()) {
+        // HTTP status code = pair.key
+        OasResponse response = pair.value;
+        foreach (mediaEntry; response.content.byKeyValue()) {
+          // HTTP content type = mediaEntry.key
+          OasMediaType mediaType = mediaEntry.value;
+          if (mediaType.schema !is null)
+            getSchemaReferences(mediaType.schema, refs);
+        }
       }
     }
   }
@@ -105,7 +121,7 @@ void generateModuleImports(Appender!string buffer, PathEntry[] pathEntries, stri
  * Writes the beginning of a class file for a service that can access a REST API.
  */
 void generateModuleHeader(
-    Appender!string buffer, string packageRoot, string moduleName, string pathRoot) {
+    Appender!string buffer, string packageRoot, string moduleName) {
   with (buffer) {
     put("// File automatically generated from OpenAPI spec.\n");
     put("module " ~ packageRoot ~ ".service." ~ moduleName ~ ";\n");
@@ -120,6 +136,7 @@ void generateModuleHeader(
     put("import openapi_client.apirequest : ApiRequest;\n");
     put("\n");
     put("import std.conv : to;\n");
+    put("import std.typecons : Nullable;\n");
     put("import std.stdio;\n");
     put("\n");
   }
@@ -157,17 +174,11 @@ void generatePathItemMethods(
       RequestBodyType requestBodyType =
           generateRequestBodyType(buffer, operationEntry, prefix);
 
+      ResponseHandlerType responseHandlerType =
+          generateResponseHandlerType(buffer, operationEntry, prefix);
+
       // The documentation is the same for all methods for a given path.
-      put(prefix);
-      put("/**\n");
-      foreach (string line; wordWrapText(pathItem.description, 95)) {
-        put(prefix);
-        put(" * ");
-        put(line);
-        put("\n");
-      }
-      put(prefix);
-      put(" */\n");
+      writeCommentBlock(buffer, pathItem.description, prefix, 100);
       put(prefix ~ "void " ~ operationEntry.operation.operationId.toLowerCamelCase() ~ "(\n");
 
       // Put the parameters as function arguments.
@@ -181,6 +192,12 @@ void generatePathItemMethods(
       if (requestBodyType !is null) {
         put(prefix ~ "    ");
         put(requestBodyType.codeType ~ " requestBody,\n");
+      }
+
+      // Put the responseHandler (if present) argument.
+      if (responseHandlerType !is null) {
+        put(prefix ~ "    ");
+        put(responseHandlerType.codeType ~ " responseHandler = null,\n");
       }
 
       put(prefix ~ "    ) {\n");
@@ -200,8 +217,9 @@ void generatePathItemMethods(
         } else if (parameter.in_ == "cookie") {
           setterMethod = "setCookieParam";
         }
-        put(prefix ~ "  requestor." ~ setterMethod ~ "(\"" ~ parameter.name ~ "\", params."
-            ~ getVariableName(parameter.name) ~ ".to!string);\n");
+        put(prefix ~ "  if (!params." ~ getVariableName(parameter.name) ~ ".isNull)\n");
+        put(prefix ~ "    requestor." ~ setterMethod ~ "(\"" ~ parameter.name ~ "\", params."
+            ~ getVariableName(parameter.name) ~ ".get.to!string);\n");
       }
       put(prefix ~ "  Security.apply(requestor);\n");
       put(prefix ~ "  requestor.makeRequest(null, (Json res) { writeln(res); });\n");
@@ -219,6 +237,9 @@ class RequestBodyType {
   OasMediaType mediaType;
 }
 
+/**
+ * Determine what type the RequestBody is for a request, and if needed, generated.
+ */
 RequestBodyType generateRequestBodyType(
     Appender!string buffer, OperationEntry operationEntry, string prefix = "  ") {
   if (operationEntry.operation.requestBody is null)
@@ -261,23 +282,68 @@ string generateRequestParamType(
   string className = operationEntry.operation.operationId ~ "Params";
   buffer.put(prefix ~ "static class " ~ className ~ "{\n");
   foreach (OasParameter parameter; operationEntry.operation.parameters) {
-    buffer.put(prefix ~ "  /**\n");
-    foreach (string line; wordWrapText(parameter.description, 95)) {
-      buffer.put(prefix ~ "   * ");
-      buffer.put(line);
-      buffer.put("\n");
-    }
-    buffer.put(prefix ~ "   */\n");
+    writeCommentBlock(buffer, parameter.description, prefix ~ "  ", 100);
     if (parameter.schema !is null) {
       generateSchemaInnerClasses(buffer, parameter.schema, prefix ~ "  ");
-      buffer.put(prefix ~ "  ");
+      // Nullable is needed to allow unset parameters to be excluded from the request.
+      buffer.put(prefix ~ "  Nullable!(");
       buffer.put(getSchemaCodeType(parameter.schema, null));
+      buffer.put(")");
     } else {
-      buffer.put(prefix ~ "  ");
+      // Nullable is needed to allow unset parameters to be excluded from the request.
+      buffer.put(prefix ~ "  Nullable!(");
       buffer.put("string");
+      buffer.put(")");
     }
     buffer.put(" " ~ getVariableName(parameter.name) ~ ";\n\n");
   }
   buffer.put(prefix ~ "}\n\n");
   return className;
+}
+
+class ResponseHandlerType {
+  string codeType;
+}
+
+/**
+ * Based on the request responses and their types, generate a "response handler" class that allows
+ * the caller to define handlers that are specific to the response type.
+ */
+ResponseHandlerType generateResponseHandlerType(
+    Appender!string buffer, OperationEntry operationEntry, string prefix = "  ") {
+  if (operationEntry.operation.responses is null)
+    return null;
+  OasResponse[string] responses = operationEntry.operation.responses;
+  string typeName = operationEntry.operation.operationId ~ "ResponseHandler";
+  with (buffer) {
+    put(prefix ~ "static class " ~ typeName ~ " {\n\n");
+    foreach (string responseCode, OasResponse oasResponse; responses) {
+      // Read the content type and pick out the first media type entry.
+      string contentType;
+      OasMediaType mediaType;
+      foreach (pair; oasResponse.content.byKeyValue()) {
+        contentType = pair.key;
+        mediaType = pair.value;
+        break;
+      }
+      // Determine if an inner class needs to be defined for the type, or if it references an
+      // existing schema.
+      string defaultResponseCodeType =
+          operationEntry.operation.operationId ~ "Response" ~ responseCode;
+      string responseCodeType = getSchemaCodeType(mediaType.schema, defaultResponseCodeType);
+      // TODO: Save data needed to map response codes to methods to call.
+
+      // Generate an inner class if needed, otherwise, do nothing.
+      generateSchemaInnerClasses(buffer, mediaType.schema, prefix ~ "  ", defaultResponseCodeType);
+
+      writeCommentBlock(buffer, oasResponse.description, prefix ~ "  ");
+      put(prefix ~ "  void delegate(" ~ responseCodeType ~ " response) handleResponse" ~ responseCode ~ ";\n\n");
+    }
+    put(prefix ~ "}\n\n");
+  }
+
+  ResponseHandlerType responseHandlerType = new ResponseHandlerType;
+  responseHandlerType.codeType = typeName;
+  // TODO: Save data needed to map response codes to methods to call.
+  return responseHandlerType;
 }

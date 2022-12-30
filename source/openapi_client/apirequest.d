@@ -3,11 +3,13 @@ module openapi_client.apirequest;
 import vibe.http.client : requestHTTP, HTTPClientRequest, HTTPClientResponse;
 import vibe.data.json : Json, deserializeJson;
 import vibe.inet.url : URL;
+import vibe.http.status : isSuccessCode;
 import vibe.http.common : HTTPMethod, httpMethodFromString;
 import vibe.textfilter.urlencode : urlEncode;
 
 import std.algorithm : map;
 import std.array : join;
+import std.stdio : writeln;
 
 import openapi_client.util : resolveTemplate;
 
@@ -38,10 +40,12 @@ class ApiRequest {
   string contentType;
   string requestBody;
 
-  this(HTTPMethod method, string severUrl, string pathUrl) {
+  this(HTTPMethod method, string serverUrl, string pathUrl) {
     this.method = method;
     this.serverUrl = serverUrl;
     this.pathUrl = pathUrl;
+
+    writeln("Creating ApiRequest: method=", method, ", serverUrl=", serverUrl, ", pathUrl=", pathUrl);
   }
 
   void setHeaderParam(string key, string value) {
@@ -64,10 +68,16 @@ class ApiRequest {
    */
   string getUrl() {
     URL url = URL(serverUrl);
-    url.path ~= resolveTemplate(pathUrl, pathParams);
+    writeln("getUrl 0: url=", url.toString());
+    writeln("getUrl 1: url.path=", url.path.toString());
+    writeln("getUrl 2: pathUrl=", pathUrl, ", resolved=", resolveTemplate(pathUrl[1..$], pathParams));
+    url.path = url.path ~ resolveTemplate(pathUrl[1..$], pathParams);
+    writeln("getUrl 3: url=", url.toString());
+    writeln("getUrl 4: url.path=", url.path.toString());
     url.queryString = queryParams.byKeyValue()
         .map!(pair => pair.key ~ "=" ~ pair.value)
         .join("&");
+    writeln("getUrl 5: url=", url.toString());
     return url.toString();
   }
 
@@ -76,8 +86,10 @@ class ApiRequest {
    * transmitting the request body.
    */
   void makeRequest(ResponseT, RequestT)(RequestT reqBody, void delegate(ResponseT) responseCb) {
+    string url = getUrl();
+    writeln("makeRequest 0: url=", url);
     requestHTTP(
-        getUrl(),
+        url,
         (scope HTTPClientRequest req) {
           req.method = method;
           foreach (pair; headerParams.byKeyValue()) {
