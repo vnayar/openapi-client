@@ -26,7 +26,10 @@ This project is written in the D programming language using the standard build t
 [dub](https://code.dlang.org/).
 
 The binary executable can be built using the command:
-> dub build
+
+```
+dub build
+```
 
 The executable will be located in `target/openapi-client`.
 
@@ -43,7 +46,10 @@ The following command-line options are supported:
   OpenAPI specification](https://github.com/stripe/openapi/blob/master/openapi/spec3.json).
 
 Alternatively, the executable can be run directly using dub, e.g.:
-> dub run openapi-client -- --targetDir=source --openApiSpec=json/spec3.json --packageRoot=stripe
+
+```
+dub run openapi-client -- --targetDir=source --openApiSpec=json/spec3.json --packageRoot=stripe
+```
 
 ## Project Usage
 
@@ -54,11 +60,14 @@ conditionally.
 For example, the following snippet can be added to your D project's
 [dub.sdl](https://dub.pm/package-format-sdl) file to only generate the client source code when the
 `dub build --config=generate` command is run:
-> # To re-create the Stripe API source files (e.g. when the OpenAPI spec changes, run the
-> # command: dub build --config=generate
-> configuration "generate" {
->   preGenerateCommands "dub run openapi-client -- --targetDir=source --openApiSpec=json/spec3.json --packageRoot=stripe"
-> }
+
+```
+# To re-create the Stripe API source files (e.g. when the OpenAPI spec changes, run the
+# command: dub build --config=generate
+configuration "generate" {
+  preGenerateCommands "dub run openapi-client -- --targetDir=source --openApiSpec=json/spec3.json --packageRoot=stripe"
+}
+```
 
 ## Generated Client Usage
 
