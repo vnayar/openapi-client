@@ -12,6 +12,7 @@ import std.array : join;
 import std.stdio : writeln;
 
 import openapi_client.util : resolveTemplate;
+import openapi_client.handler : ResponseHandler;
 
 /**
  * Utility class to create HTTPClientRequests to access the REST API.
@@ -85,7 +86,7 @@ class ApiRequest {
    * Perform the network request for an API Request, resolving cookie and header parameters, and
    * transmitting the request body.
    */
-  void makeRequest(ResponseT, RequestT)(RequestT reqBody, void delegate(ResponseT) responseCb) {
+  void makeRequest(RequestT)(RequestT reqBody, ResponseHandler handler) {
     string url = getUrl();
     writeln("makeRequest 0: url=", url);
     requestHTTP(
@@ -100,7 +101,8 @@ class ApiRequest {
           }
         },
         (scope HTTPClientResponse res) {
-          responseCb(deserializeJson!ResponseT(res.readJson()));
+          if (handler !is null)
+            handler.handleResponse(res);
         });
   }
 }

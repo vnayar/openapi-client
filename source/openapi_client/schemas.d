@@ -151,7 +151,9 @@ void generateModuleCode(string targetDir, JsonSchema jsonSchema, OasSchema oasSc
     generateClassCode(  // TODO: Pass the entire schema as an argument, not just parts of it.
         classBuffer, oasSchema.description, jsonSchema.className, oasSchema.properties);
 
+    put("import vibe.data.serialization : optional;\n");
     put("import vibe.data.json : Json;\n\n");
+    put("import std.typecons : Nullable;\n\n");
     // While generating the class code, we accumulated external references to import.
     foreach (string schemaRef; getSchemaReferences(oasSchema)) {
       string schemaName = getSchemaNameFromRef(schemaRef);
@@ -218,9 +220,10 @@ void generatePropertyCode(
     buffer.put(prefix);
     buffer.put(" */\n");
   }
-  buffer.put(prefix);
   try {
-    buffer.put(getSchemaCodeType(propertySchema) ~ " " ~ getVariableName(propertyName) ~ ";\n\n");
+    buffer.put(prefix ~ "@optional\n");
+    buffer.put(prefix ~ getSchemaCodeType(propertySchema) ~ " "
+        ~ getVariableName(propertyName) ~ ";\n\n");
   } catch (Exception e) {
     writeln("Error writing propertyName=", propertyName,
         ", propertyDescription=", propertySchema.description);
@@ -315,25 +318,26 @@ string getSchemaCodeType(OasSchema schema, string defaultName = null) {
     return getClassNameFromSchemaName(schemaName);
   }
   // First check if we have a primitive type.
+  // TODO: Use the "schema.required" to determine which are nullable.
   else if (schema.type !is null) {
     if (schema.type == "integer") {
       if (schema.format == "int32")
-        return "int";
+        return "Nullable!(int)";
       else if (schema.format == "int64")
-        return "long";
+        return "Nullable!(long)";
       else if (schema.format == "unix-time")
-        return "long";
-      return "int";
+        return "Nullable!(long)";
+      return "Nullable!(int)";
     } else if (schema.type == "number") {
       if (schema.format == "float")
-        return "float";
+        return "Nullable!(float)";
       else if (schema.format == "double")
-        return "double";
-      return "float";
+        return "Nullable!(double)";
+      return "Nullable!(float)";
     } else if (schema.type == "boolean") {
-      return "bool";
+      return "Nullable!(bool)";
     } else if (schema.type == "string") {
-      return "string";
+      return "Nullable!(string)";
     } else if (schema.type == "array") {
       return getSchemaCodeType(schema.items) ~ "[]";
     } else if (schema.type == "object") {

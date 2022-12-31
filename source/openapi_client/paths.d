@@ -108,7 +108,7 @@ void generateModuleImports(Appender!string buffer, PathEntry[] pathEntries, stri
   foreach (string schemaRef; refs) {
     string schemaName = getSchemaNameFromRef(schemaRef);
     with (buffer) {
-      put("import ");
+      put("public import ");
       put(getModuleNameFromSchemaName(packageRoot, schemaName));
       put(" : ");
       put(getClassNameFromSchemaName(schemaName));
@@ -129,11 +129,13 @@ void generateModuleHeader(
     put("import vibe.http.client : requestHTTP, HTTPClientRequest, HTTPClientResponse;\n");
     put("import vibe.http.common : HTTPMethod;\n");
     put("import vibe.stream.operations : readAllUTF8;\n");
+    put("import vibe.data.serialization : optional;\n");
     put("import vibe.data.json : Json, deserializeJson;\n");
     put("\n");
     put("import " ~ packageRoot ~ ".servers : Servers;\n");
     put("import " ~ packageRoot ~ ".security : Security;\n");
     put("import openapi_client.apirequest : ApiRequest;\n");
+    put("import openapi_client.handler : ResponseHandler;\n");
     put("\n");
     put("import std.conv : to;\n");
     put("import std.typecons : Nullable;\n");
@@ -222,12 +224,15 @@ void generatePathItemMethods(
             ~ getVariableName(parameter.name) ~ ".get.to!string);\n");
       }
       put(prefix ~ "  Security.apply(requestor);\n");
-      put(prefix ~ "  requestor.makeRequest(null, (Json res) { writeln(res); });\n");
+      put(prefix ~ "  requestor.makeRequest(null, responseHandler);\n");
       put(prefix ~ "}\n\n");
     }
   }
 }
 
+/**
+ * Information about the request body for an [OasOperation].
+ */
 class RequestBodyType {
   /**
    * The type in D-code representing the request body.
@@ -280,7 +285,7 @@ string generateRequestParamType(
   if (parameters is null || parameters.length == 0)
     return null;
   string className = operationEntry.operation.operationId ~ "Params";
-  buffer.put(prefix ~ "static class " ~ className ~ "{\n");
+  buffer.put(prefix ~ "static class " ~ className ~ " {\n");
   foreach (OasParameter parameter; operationEntry.operation.parameters) {
     writeCommentBlock(buffer, parameter.description, prefix ~ "  ", 100);
     if (parameter.schema !is null) {
@@ -316,8 +321,19 @@ ResponseHandlerType generateResponseHandlerType(
   OasResponse[string] responses = operationEntry.operation.responses;
   string typeName = operationEntry.operation.operationId ~ "ResponseHandler";
   with (buffer) {
-    put(prefix ~ "static class " ~ typeName ~ " {\n\n");
-    foreach (string responseCode, OasResponse oasResponse; responses) {
+    put(prefix ~ "static class " ~ typeName ~ " : ResponseHandler {\n\n");
+
+    struct ResponseHandlerData {
+      string contentType;
+      string statusCode;
+      string responseSourceType;
+      string handlerMethodName;
+    }
+    ResponseHandlerData[] responseHandlerData;
+
+    // Create a handler method that can be defined for each HTTP status code and its corresponding
+    // response body type.
+    foreach (string statusCode, OasResponse oasResponse; responses) {
       // Read the content type and pick out the first media type entry.
       string contentType;
       OasMediaType mediaType;
@@ -328,22 +344,57 @@ ResponseHandlerType generateResponseHandlerType(
       }
       // Determine if an inner class needs to be defined for the type, or if it references an
       // existing schema.
-      string defaultResponseCodeType =
-          operationEntry.operation.operationId ~ "Response" ~ responseCode;
-      string responseCodeType = getSchemaCodeType(mediaType.schema, defaultResponseCodeType);
-      // TODO: Save data needed to map response codes to methods to call.
+      string defaultResponseSourceType =
+          operationEntry.operation.operationId ~ "Response" ~ statusCode;
+      string responseSourceType = getSchemaCodeType(mediaType.schema, defaultResponseSourceType);
 
       // Generate an inner class if needed, otherwise, do nothing.
-      generateSchemaInnerClasses(buffer, mediaType.schema, prefix ~ "  ", defaultResponseCodeType);
+      generateSchemaInnerClasses(buffer, mediaType.schema, prefix ~ "  ", defaultResponseSourceType);
 
       writeCommentBlock(buffer, oasResponse.description, prefix ~ "  ");
-      put(prefix ~ "  void delegate(" ~ responseCodeType ~ " response) handleResponse" ~ responseCode ~ ";\n\n");
+      string handlerMethodName = "handleResponse" ~ statusCode;
+      put(prefix ~ "  void delegate(" ~ responseSourceType ~ " response) " ~ handlerMethodName ~ ";\n\n");
+
+      // Save data needed to map response codes to methods to call.
+      responseHandlerData ~=
+          ResponseHandlerData(contentType, statusCode, responseSourceType, handlerMethodName);
     }
+
+    // Generate a handler method that routes to the individual handler methods above.
+    put(prefix ~ "  /**\n");
+    put(prefix ~ "   * An HTTPResponse handler that routes to a particular handler method.\n");
+    put(prefix ~ "   */\n");
+    put(prefix ~ "  void handleResponse(HTTPClientResponse res) {\n");
+    ResponseHandlerData* defaultHandlerDatum = null;
+    put(prefix ~ "    writeln(\"handleResponse 0: res=\", res);\n");
+    foreach (ref ResponseHandlerData datum; responseHandlerData) {
+      if (datum.statusCode == "default") {
+        defaultHandlerDatum = &datum;
+      } else {
+        int statusCodeMin = datum.statusCode.tr("x", "0").to!int;
+        int statusCodeMax = datum.statusCode.tr("x", "9").to!int;
+        put(prefix ~ "    if (res.statusCode >= " ~ statusCodeMin.to!string ~ " && res.statusCode <= "
+            ~ statusCodeMax.to!string ~ ") {\n");
+        if (datum.contentType == "application/json") {
+          put(prefix ~ "      " ~ datum.handlerMethodName ~ "(deserializeJson!("
+              ~ datum.responseSourceType ~ ")(res.readJson()));\n");
+          put(prefix ~ "      return;\n");
+        } else {
+          put(prefix ~ "      writeln(\"Unsupported contentType " ~ datum.contentType ~ ".\");\n");
+        }
+        put(prefix ~ "    }\n");
+      }
+    }
+    if (defaultHandlerDatum !is null) {
+      put(prefix ~ "    " ~ defaultHandlerDatum.handlerMethodName ~ "(deserializeJson!("
+          ~ defaultHandlerDatum.responseSourceType ~ ")(res.readJson()));\n");
+    }
+    put(prefix ~ "  }\n\n");
+
     put(prefix ~ "}\n\n");
   }
 
   ResponseHandlerType responseHandlerType = new ResponseHandlerType;
   responseHandlerType.codeType = typeName;
-  // TODO: Save data needed to map response codes to methods to call.
   return responseHandlerType;
 }
