@@ -68,8 +68,6 @@ void writeServerFiles(OasDocument oasDocument, string targetDir, string packageR
     put("   * Chooses a url an OasPathItem given both path-specific and general servers.\n");
     put("   */\n");
     put("  static string getServerUrl() {\n");
-    put("    writeln(\"getServerUrl 0: serverUrl=\", serverUrl);\n");
-    put("    writeln(\"getServerUrl 1: resolve=\", resolveTemplate(serverUrl, serverParams));\n");
     put("    return resolveTemplate(serverUrl, serverParams);\n");
     put("  }\n\n");
     put("}\n");

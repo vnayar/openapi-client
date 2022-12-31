@@ -224,7 +224,12 @@ void generatePathItemMethods(
             ~ getVariableName(parameter.name) ~ ".get.to!string);\n");
       }
       put(prefix ~ "  Security.apply(requestor);\n");
-      put(prefix ~ "  requestor.makeRequest(null, responseHandler);\n");
+      put(prefix ~ "  requestor.makeRequest(");
+      if (requestBodyType is null)
+        put("null");
+      else
+        put("requestBody");
+      put(", responseHandler);\n");
       put(prefix ~ "}\n\n");
     }
   }
@@ -366,7 +371,6 @@ ResponseHandlerType generateResponseHandlerType(
     put(prefix ~ "   */\n");
     put(prefix ~ "  void handleResponse(HTTPClientResponse res) {\n");
     ResponseHandlerData* defaultHandlerDatum = null;
-    put(prefix ~ "    writeln(\"handleResponse 0: res=\", res);\n");
     foreach (ref ResponseHandlerData datum; responseHandlerData) {
       if (datum.statusCode == "default") {
         defaultHandlerDatum = &datum;

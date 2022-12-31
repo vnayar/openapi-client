@@ -3,6 +3,7 @@ module openapi_client.apirequest;
 import vibe.http.client : requestHTTP, HTTPClientRequest, HTTPClientResponse;
 import vibe.data.json : Json, deserializeJson;
 import vibe.inet.url : URL;
+import vibe.core.log : logDebug;
 import vibe.http.status : isSuccessCode;
 import vibe.http.common : HTTPMethod, httpMethodFromString;
 import vibe.textfilter.urlencode : urlEncode;
@@ -46,7 +47,7 @@ class ApiRequest {
     this.serverUrl = serverUrl;
     this.pathUrl = pathUrl;
 
-    writeln("Creating ApiRequest: method=", method, ", serverUrl=", serverUrl, ", pathUrl=", pathUrl);
+    logDebug("Creating ApiRequest: method=%s, serverUrl=%s, pathUrl=%s", method, serverUrl, pathUrl);
   }
 
   void setHeaderParam(string key, string value) {
@@ -69,16 +70,10 @@ class ApiRequest {
    */
   string getUrl() {
     URL url = URL(serverUrl);
-    writeln("getUrl 0: url=", url.toString());
-    writeln("getUrl 1: url.path=", url.path.toString());
-    writeln("getUrl 2: pathUrl=", pathUrl, ", resolved=", resolveTemplate(pathUrl[1..$], pathParams));
     url.path = url.path ~ resolveTemplate(pathUrl[1..$], pathParams);
-    writeln("getUrl 3: url=", url.toString());
-    writeln("getUrl 4: url.path=", url.path.toString());
     url.queryString = queryParams.byKeyValue()
         .map!(pair => pair.key ~ "=" ~ pair.value)
         .join("&");
-    writeln("getUrl 5: url=", url.toString());
     return url.toString();
   }
 
@@ -88,7 +83,7 @@ class ApiRequest {
    */
   void makeRequest(RequestT)(RequestT reqBody, ResponseHandler handler) {
     string url = getUrl();
-    writeln("makeRequest 0: url=", url);
+    logDebug("makeRequest 0: url=%s", url);
     requestHTTP(
         url,
         (scope HTTPClientRequest req) {
@@ -97,6 +92,7 @@ class ApiRequest {
             req.headers[pair.key] = pair.value;
           }
           if (reqBody !is null) {
+            // TODO: Support additional content-types.
             req.writeJsonBody(reqBody);
           }
         },
