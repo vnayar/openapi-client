@@ -1,16 +1,18 @@
 module openapi_client.apirequest;
 
+import vibe.core.log : logDebug, logError;
+import vibe.data.json : Json, deserializeJson, serializeToJson;
 import vibe.http.client : requestHTTP, HTTPClientRequest, HTTPClientResponse;
-import vibe.data.json : Json, deserializeJson;
-import vibe.inet.url : URL;
-import vibe.core.log : logDebug;
-import vibe.http.status : isSuccessCode;
 import vibe.http.common : HTTPMethod, httpMethodFromString;
+import vibe.http.status : isSuccessCode;
+import vibe.inet.url : URL;
+import vibe.inet.webform : FormFields;
 import vibe.textfilter.urlencode : urlEncode;
 
 import std.algorithm : map;
 import std.array : join;
 import std.stdio : writeln;
+import std.conv : to;
 
 import openapi_client.util : resolveTemplate;
 import openapi_client.handler : ResponseHandler;
@@ -78,8 +80,8 @@ class ApiRequest {
   }
 
   /**
-   * Perform the network request for an API Request, resolving cookie and header parameters, and
-   * transmitting the request body.
+   * Asynchronously perform the network request for an API Request, resolving cookie and header
+   * parameters, and transmitting the request body.
    */
   void makeRequest(RequestT)(RequestT reqBody, ResponseHandler handler) {
     string url = getUrl();
@@ -89,16 +91,54 @@ class ApiRequest {
         (scope HTTPClientRequest req) {
           req.method = method;
           foreach (pair; headerParams.byKeyValue()) {
+            logDebug("Adding header: %s: %s", pair.key, pair.value);
             req.headers[pair.key] = pair.value;
           }
           if (reqBody !is null) {
             // TODO: Support additional content-types.
-            req.writeJsonBody(reqBody);
+            if (req.contentType == "application/x-www-form-urlencoded") {
+              // TODO: Only perform deepObject encoding if the OpenAPI Spec calls for it.
+              auto formFields = serializeDeepObject(reqBody);
+              writeln("Writing Form Body: ", formFields);
+              req.writeFormBody(formFields.byKeyValue());
+            } else if (req.contentType == "application/json") {
+              req.writeJsonBody(reqBody);
+            } else {
+              logError("Unsupported request body format: %s", req.contentType);
+            }
           }
         },
         (scope HTTPClientResponse res) {
+          logDebug("makeRequest 1: handler=%s", handler);
           if (handler !is null)
             handler.handleResponse(res);
         });
+  }
+
+  /**
+   * Serialize an object according to DeepObject style.
+   *
+   * See_Also: https://swagger.io/docs/specification/serialization/
+   */
+  static FormFields serializeDeepObject(T)(T obj) {
+    Json json = serializeToJson(obj);
+    FormFields fields;
+    serializeDeepObject(json, "", fields);
+    return fields;
+  }
+
+  static void serializeDeepObject(Json json, string keyPrefix, ref FormFields fields) {
+    if (json.type == Json.Type.array) {
+      foreach (size_t index, Json value; json.byIndexValue) {
+        serializeDeepObject(value, keyPrefix ~ "[" ~ index.to!string ~ "]", fields);
+      }
+    } else if (json.type == Json.Type.object) {
+      foreach (string key, Json value; json.byKeyValue ) {
+        serializeDeepObject(value, keyPrefix == "" ? key : keyPrefix ~ "[" ~ key ~ "]", fields);
+      }
+    } else if (json.type != Json.Type.null_) {
+      // Finally we have an actual value.
+      fields.addField(keyPrefix, json.to!string);
+    }
   }
 }

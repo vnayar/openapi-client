@@ -4,7 +4,7 @@ import vibe.data.json : Json, deserializeJson;
 
 import std.container.rbtree : RedBlackTree;
 import std.file : mkdir, mkdirRecurse, write;
-import std.array : appender, split, Appender;
+import std.array : appender, split, Appender, join;
 import std.algorithm : skipOver;
 import std.path : buildNormalizedPath, dirName;
 import std.string : tr, capitalize;
@@ -105,15 +105,17 @@ void generateModuleImports(Appender!string buffer, PathEntry[] pathEntries, stri
     }
   }
 
-  foreach (string schemaRef; refs) {
-    string schemaName = getSchemaNameFromRef(schemaRef);
-    with (buffer) {
+  // Add imports for any referenced schemas.
+  with (buffer) {
+    foreach (string schemaRef; refs) {
+      string schemaName = getSchemaNameFromRef(schemaRef);
       put("public import ");
       put(getModuleNameFromSchemaName(packageRoot, schemaName));
       put(" : ");
       put(getClassNameFromSchemaName(schemaName));
       put(";\n");
     }
+    put("\n");
   }
 }
 
@@ -180,7 +182,17 @@ void generatePathItemMethods(
           generateResponseHandlerType(buffer, operationEntry, prefix);
 
       // The documentation is the same for all methods for a given path.
-      writeCommentBlock(buffer, pathItem.description, prefix, 100);
+      writeCommentBlock(
+          buffer,
+          join(
+              [
+                pathItem.description,
+                operationEntry.operation.description,
+                "See_Also: HTTP " ~ operationEntry.method  ~ " `" ~ path ~ "`"
+              ],
+             "\n\n"),
+          prefix,
+          100);
       put(prefix ~ "void " ~ operationEntry.operation.operationId.toLowerCamelCase() ~ "(\n");
 
       // Put the parameters as function arguments.
@@ -199,7 +211,7 @@ void generatePathItemMethods(
       // Put the responseHandler (if present) argument.
       if (responseHandlerType !is null) {
         put(prefix ~ "    ");
-        put(responseHandlerType.codeType ~ " responseHandler = null,\n");
+        put(responseHandlerType.codeType ~ " responseHandler,\n");
       }
 
       put(prefix ~ "    ) {\n");
@@ -223,7 +235,14 @@ void generatePathItemMethods(
         put(prefix ~ "    requestor." ~ setterMethod ~ "(\"" ~ parameter.name ~ "\", params."
             ~ getVariableName(parameter.name) ~ ".get.to!string);\n");
       }
+      // Don't forget to set the content-type of the requestBody.
+      if (requestBodyType !is null) {
+        put(prefix ~ "  requestor.setHeaderParam(\"Content-Type\", \""
+            ~ requestBodyType.contentType ~ "\");\n");
+      }
+      // The security policy may modify the request as well.
       put(prefix ~ "  Security.apply(requestor);\n");
+      // Finally let the request execute.
       put(prefix ~ "  requestor.makeRequest(");
       if (requestBodyType is null)
         put("null");

@@ -19,6 +19,8 @@ API, however, it is intended to be a general tool usable for all OpenAPI specifi
    2. Generation of inline inner static classes for response bodies.
    3. Generation of a "ResponseHandler" class permitting callers to receive typed responses per HTTP
       status code defined in the OpenAPI3 specification.
+4. HTTP requests and responses in `application/json` format.
+5. HTTP requests in `application/x-www-form-urlencoded` format, encoded in "deepObject" format.
 
 ## Compilation
 
@@ -113,8 +115,9 @@ documented from within the generated code.
 ## Future Features
 
 1. Improved unit test coverage.
-3. Support additional request content-types, such as `application/x-www-form-urlencoded`,
-   `multipart/form-data`, and `text/plain`.
+2. Support additional request content-types, such as `multipart/form-data` and `text/plain`.
+3. For HTTP requests in `application/x-www-form-urlencoded` format, support additional encoding
+   styles such as: `pipeDelimited`, `spaceDelimited`, `simple`, `form`, `label`, and `matrix`.
 4. Support additional response body content-types, such as `application/pdf` and `text/plain`.
 5. Generation of client libraries in other programming langugages, e.g. C, Java, Rust, Go, etc.
 6. Alternative network/JSON library generation, rather than just [Vibe.d](https://vibed.org/).
