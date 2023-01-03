@@ -1,3 +1,9 @@
+/**
+ * Methods and classes used to generate classes and other data structures representing common
+ * schemas in an OpenAPI Specification.
+ *
+ * See_Also: https://spec.openapis.org/oas/latest.html#schema-object
+ */
 module openapi_client.schemas;
 
 import vibe.data.json : Json, deserializeJson;
@@ -14,10 +20,30 @@ import std.stdio : writeln;
 import openapi : OasDocument, OasSchema;
 import openapi_client.util : toUpperCamelCase, wordWrapText;
 
+/**
+ * Descriptive information about a OpenAPI schema and the Dlang code that represents it.
+ *
+ * Information in this class is used during code generation via [jsonSchemaByRef].
+ */
 class JsonSchema {
+  /**
+   * The name of the schema as per the OpenAPI Specification.
+   */
   string schemaName;
+
+  /**
+   * The name of the Dlang module that contains classes for the schema.
+   */
   string moduleName;
+
+  /**
+   * The name of the Dlang class representing this schema.
+   */
   string className;
+
+  /**
+   * The OpenAPI Specification data representing the schema, in case it needs re-processing.
+   */
   OasSchema schema;
 }
 
@@ -52,6 +78,10 @@ string getModuleNameFromSchemaName(string packageRoot, string schemaName) {
     return packageRoot ~ ".model." ~ schemaName;
 }
 
+/**
+ * Returns the OpenAPI Specification schema name from a schema
+ * reference. E.g. "#/components/schemas/Thing" => "Thing".
+ */
 string getSchemaNameFromRef(string ref_) {
   string schemaName = ref_;
   if (!skipOver(schemaName, "#/components/schemas/"))
@@ -79,6 +109,9 @@ void writeSchemaFiles(OasDocument oasDocument, string targetDir, string packageR
   }
 }
 
+/**
+ * A collection of variable names that cannot be used to generate Dlang code.
+ */
 static immutable RedBlackTree!string RESERVED_WORDS = new RedBlackTree!string([
       "abstract",
       "alias",
@@ -141,6 +174,10 @@ static immutable RedBlackTree!string RESERVED_WORDS = new RedBlackTree!string([
       "wstring",
     ]);
 
+/**
+ * Writes a Dlang source file for a module that contains a class representing an OpenAPI
+ * Specification schema.
+ */
 void generateModuleCode(string targetDir, JsonSchema jsonSchema, OasSchema oasSchema, string packageRoot) {
   auto buffer = appender!string();
   with (buffer) {
@@ -176,6 +213,9 @@ void generateModuleCode(string targetDir, JsonSchema jsonSchema, OasSchema oasSc
   write(fileName, buffer[]);
 }
 
+/**
+ * Writes to a buffer a Dlang class representing an OpenAPI Specification schema.
+ */
 void generateClassCode(
     Appender!string buffer, string description, string className, OasSchema[string] properties) {
   with (buffer) {
@@ -187,7 +227,6 @@ void generateClassCode(
       put("\n");
     }
     put(" */\n");
-    // TODO: Use the schema.title to produce the class name.
     put("class " ~ className ~ " {\n");
     // Define individual properties of the class.
     foreach (string propertyName, OasSchema propertySchema; properties) {
@@ -383,6 +422,7 @@ string[] getSchemaReferences(OasSchema schema) {
   return refs[].array;
 }
 
+/// ditto
 private void getSchemaReferences(OasSchema schema, ref RedBlackTree!string refs) {
   if (schema.ref_ !is null) {
     refs.insert(schema.ref_);

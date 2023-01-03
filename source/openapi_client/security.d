@@ -1,3 +1,7 @@
+/**
+ * Methods to generate `security.d`, allowing the client to use the security schemes in the OpenAPI
+ * Specification.
+ */
 module openapi_client.security;
 
 import std.array : appender, split, Appender;

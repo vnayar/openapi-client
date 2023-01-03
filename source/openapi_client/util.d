@@ -1,3 +1,6 @@
+/**
+ * General purpose utility functions for generating Dlang source files.
+ */
 module openapi_client.util;
 
 import std.array : array, split, appender, Appender;

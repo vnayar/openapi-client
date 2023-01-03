@@ -1,9 +1,18 @@
+/**
+ * Data structures needed to parse and document an OpenAPI Specification.
+ *
+ * See_Also:
+ *   https://spec.openapis.org/oas/latest.html
+ *   https://swagger.io/specification/
+ */
 module openapi;
 
 import vibe.data.json : Json;
 import vibe.data.serialization : jsonName = name, jsonOptional = optional;
 
 /**
+ * The root document of an OpenAPI Specification.
+ *
  * The OpenAPI Specification (OAS) defines a standard, language-agnostic interface to RESTful APIs
  * which allows both humans and computers to discover and understand the capabilities of the service
  * without access to source code, documentation, or through network traffic inspection. When
@@ -18,6 +27,8 @@ import vibe.data.serialization : jsonName = name, jsonOptional = optional;
  */
 class OasDocument {
   /**
+   * The semantic version number of the OpenAPI Specification.
+   *
    * **REQUIRED**. This string MUST be the semantic version number of the OpenAPI Specification
    * version that the OpenAPI document uses. The openapi field SHOULD be used by tooling
    * specifications and clients to interpret the OpenAPI document. This is not related to the API
@@ -50,6 +61,8 @@ class OasDocument {
   OasComponents components;
 
   /**
+   * A list of named [securitySchemes] that can be used to access this API.
+   *
    * A declaration of which security mechanisms can be used across the API. The list of values
    * includes alternative security requirement objects that can be used. Only one of the security
    * requirement objects need to be satisfied to authorize a request. Individual operations can

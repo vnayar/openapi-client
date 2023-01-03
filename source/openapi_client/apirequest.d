@@ -1,3 +1,6 @@
+/**
+ * Utilities needed to gather information for and execute an HTTP request.
+ */
 module openapi_client.apirequest;
 
 import vibe.core.log : logDebug, logError;
@@ -37,13 +40,29 @@ class ApiRequest {
    */
   string pathUrl;
 
+  /**
+   * A mapping from path-parameter names to their values.
+   */
   string[string] pathParams;
+
+  /**
+   * A mapping from query-string parameter names to their values.
+   */
   string[string] queryParams;
+
+  /**
+   * A mapping from header parameter names to their values.
+   */
   string[string] headerParams;
 
-  string contentType;
-  string requestBody;
-
+  /**
+   * Constructs a new ApiRequest.
+   *
+   * Params:
+   *   method = The HTTP method of the request.
+   *   serverUrl = The base-URL of the server that offers the API.
+   *   pathUrl = The endpoint-specific path to add to the request.
+   */
   this(HTTPMethod method, string serverUrl, string pathUrl) {
     this.method = method;
     this.serverUrl = serverUrl;
@@ -52,16 +71,25 @@ class ApiRequest {
     logDebug("Creating ApiRequest: method=%s, serverUrl=%s, pathUrl=%s", method, serverUrl, pathUrl);
   }
 
+  /**
+   * Adds a header parameter and value to the request.
+   */
   void setHeaderParam(string key, string value) {
     // Headers can contain ASCII characters.
     headerParams[key] = value;
   }
 
+  /**
+   * URL-encode a value to add as a path parameter.
+   */
   void setPathParam(string key, string value) {
     // Path parameters must be URL encoded.
     pathParams[key] = urlEncode(value);
   }
 
+  /**
+   * URL-encode a value to add as a query-string parameter.
+   */
   void setQueryParam(string key, string value) {
     // Path parameters must be URL encoded.
     queryParams[key] = urlEncode(value);
@@ -99,7 +127,7 @@ class ApiRequest {
             if (req.contentType == "application/x-www-form-urlencoded") {
               // TODO: Only perform deepObject encoding if the OpenAPI Spec calls for it.
               auto formFields = serializeDeepObject(reqBody);
-              writeln("Writing Form Body: ", formFields);
+              logDebug("Writing Form Body: ", formFields.toString);
               req.writeFormBody(formFields.byKeyValue());
             } else if (req.contentType == "application/json") {
               req.writeJsonBody(reqBody);
@@ -127,6 +155,7 @@ class ApiRequest {
     return fields;
   }
 
+  /// ditto
   static void serializeDeepObject(Json json, string keyPrefix, ref FormFields fields) {
     if (json.type == Json.Type.array) {
       foreach (size_t index, Json value; json.byIndexValue) {

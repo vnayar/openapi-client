@@ -1,3 +1,6 @@
+/**
+ * Interfaces and utilities common to response handlers for any API Endpoint.
+ */
 module openapi_client.handler;
 
 import vibe.http.client : HTTPClientResponse;

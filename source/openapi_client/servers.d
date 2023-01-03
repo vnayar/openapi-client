@@ -1,3 +1,6 @@
+/**
+ * Methods to generate `severs.d`, which allows control over the servers used to contact the API.
+ */
 module openapi_client.servers;
 
 import std.array : appender, split, Appender;
