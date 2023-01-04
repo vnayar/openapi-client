@@ -3,9 +3,13 @@
  */
 module openapi_client.util;
 
+import vibe.data.json : Json, serializeToJson;
+import vibe.inet.webform : FormFields;
+
 import std.array : array, split, appender, Appender;
 import std.algorithm : map, joiner;
 import std.array : appender;
+import std.conv : to;
 import std.uni : toUpper, toLower, isUpper, isLower, isAlpha, isAlphaNum;
 
 /**
@@ -190,4 +194,62 @@ unittest {
       == "world/carp/world");
   assertThrown!Exception(resolveTemplate("abc{def{hij}", ["def": "ham"]));
   assertThrown!Exception(resolveTemplate("ab}c{def}", ["def": "ham"]));
+}
+
+/**
+ * Serialize an object according to DeepObject style.
+ *
+ * See_Also: https://swagger.io/docs/specification/serialization/
+ */
+FormFields serializeDeepObject(T)(T obj) {
+  Json json = serializeToJson(obj);
+  FormFields fields;
+  serializeDeepObject(json, "", fields);
+  return fields;
+}
+
+unittest {
+  import std.typecons : Nullable;
+  class Thing {
+    string f1;
+    Nullable!int f2;
+    static class InnerThing {
+      string f3;
+      Nullable!int f4;
+    }
+    InnerThing f5;
+  }
+  auto t = new Thing();
+  FormFields fields = serializeDeepObject(t);
+  assert(fields.length == 0, "fields = " ~ fields.toString);
+}
+
+/// ditto
+void serializeDeepObject(Json json, string keyPrefix, ref FormFields fields) {
+  if (json.type == Json.Type.array) {
+    foreach (size_t index, Json value; json.byIndexValue) {
+      serializeDeepObject(value, keyPrefix ~ "[" ~ index.to!string ~ "]", fields);
+    }
+  } else if (json.type == Json.Type.object) {
+    foreach (string key, Json value; json.byKeyValue ) {
+      serializeDeepObject(value, keyPrefix == "" ? key : keyPrefix ~ "[" ~ key ~ "]", fields);
+    }
+  } else if (json.type != Json.Type.null_
+      && !(json.type == Json.Type.string && json.get!string == "")) {
+    // Finally we have an actual value.
+    fields.addField(keyPrefix, json.to!string);
+  }
+}
+
+/**
+ * A simple check whether an object is present, permitting consistency with [std.typecons.Nullable].
+ */
+bool isNull(T)(const T obj) nothrow pure @nogc @safe {
+  return obj is null;
+}
+
+/// ditto
+bool isNull(const Json obj) nothrow @safe {
+  // A JSON object may exist will a null type, so we check for "undefined" instead.
+  return obj.type == Json.Type.undefined;
 }

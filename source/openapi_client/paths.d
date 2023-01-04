@@ -136,6 +136,7 @@ void generateModuleHeader(
     put("\n");
     put("import " ~ packageRoot ~ ".servers : Servers;\n");
     put("import " ~ packageRoot ~ ".security : Security;\n");
+    put("import openapi_client.util : isNull;\n");
     put("import openapi_client.apirequest : ApiRequest;\n");
     put("import openapi_client.handler : ResponseHandler;\n");
     put("\n");
@@ -223,7 +224,8 @@ void generatePathItemMethods(
       foreach (OasParameter parameter; operationEntry.operation.parameters) {
         string setterMethod;
         if (parameter.in_ == "query") {
-          setterMethod = "setQueryParam";
+          // TODO: Support other encoding mechanisms rather than assuming "deepObject".
+          setterMethod = "setQueryParam!(\"deepObject\")";
         } else if (parameter.in_ == "header") {
           setterMethod = "setHeaderParam";
         } else if (parameter.in_ == "path") {
@@ -233,7 +235,7 @@ void generatePathItemMethods(
         }
         put(prefix ~ "  if (!params." ~ getVariableName(parameter.name) ~ ".isNull)\n");
         put(prefix ~ "    requestor." ~ setterMethod ~ "(\"" ~ parameter.name ~ "\", params."
-            ~ getVariableName(parameter.name) ~ ".get.to!string);\n");
+            ~ getVariableName(parameter.name) ~ ");\n");
       }
       // Don't forget to set the content-type of the requestBody.
       if (requestBodyType !is null) {
@@ -314,15 +316,9 @@ string generateRequestParamType(
     writeCommentBlock(buffer, parameter.description, prefix ~ "  ", 100);
     if (parameter.schema !is null) {
       generateSchemaInnerClasses(buffer, parameter.schema, prefix ~ "  ");
-      // Nullable is needed to allow unset parameters to be excluded from the request.
-      buffer.put(prefix ~ "  Nullable!(");
-      buffer.put(getSchemaCodeType(parameter.schema, null));
-      buffer.put(")");
+      buffer.put(prefix ~ "  " ~ getSchemaCodeType(parameter.schema, null));
     } else {
-      // Nullable is needed to allow unset parameters to be excluded from the request.
-      buffer.put(prefix ~ "  Nullable!(");
-      buffer.put("string");
-      buffer.put(")");
+      buffer.put(prefix ~ "  string");
     }
     buffer.put(" " ~ getVariableName(parameter.name) ~ ";\n\n");
   }
@@ -377,7 +373,8 @@ ResponseHandlerType generateResponseHandlerType(
 
       writeCommentBlock(buffer, oasResponse.description, prefix ~ "  ");
       string handlerMethodName = "handleResponse" ~ statusCode;
-      put(prefix ~ "  void delegate(" ~ responseSourceType ~ " response) " ~ handlerMethodName ~ ";\n\n");
+      put(prefix ~ "  void delegate(" ~ responseSourceType ~ " response) "
+          ~ handlerMethodName ~ ";\n\n");
 
       // Save data needed to map response codes to methods to call.
       responseHandlerData ~=
@@ -398,6 +395,10 @@ ResponseHandlerType generateResponseHandlerType(
         int statusCodeMax = datum.statusCode.tr("x", "9").to!int;
         put(prefix ~ "    if (res.statusCode >= " ~ statusCodeMin.to!string ~ " && res.statusCode <= "
             ~ statusCodeMax.to!string ~ ") {\n");
+        put(prefix ~ "      if (" ~ datum.handlerMethodName ~ " is null) "
+            ~ "throw new Exception(\"Unhandled response status code "
+            ~ datum.statusCode ~ "\");\n");
+        // TODO: Support additional response body types.
         if (datum.contentType == "application/json") {
           put(prefix ~ "      " ~ datum.handlerMethodName ~ "(deserializeJson!("
               ~ datum.responseSourceType ~ ")(res.readJson()));\n");
@@ -409,6 +410,9 @@ ResponseHandlerType generateResponseHandlerType(
       }
     }
     if (defaultHandlerDatum !is null) {
+      put(prefix ~ "    if (" ~ defaultHandlerDatum.handlerMethodName ~ " is null) "
+          ~ "throw new Exception(\"Unhandled response status code "
+          ~ defaultHandlerDatum.statusCode ~ "\");\n");
       put(prefix ~ "    " ~ defaultHandlerDatum.handlerMethodName ~ "(deserializeJson!("
           ~ defaultHandlerDatum.responseSourceType ~ ")(res.readJson()));\n");
     }

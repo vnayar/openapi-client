@@ -14,10 +14,10 @@ import vibe.textfilter.urlencode : urlEncode;
 
 import std.algorithm : map;
 import std.array : join;
-import std.stdio : writeln;
 import std.conv : to;
+import std.typecons : Nullable;
 
-import openapi_client.util : resolveTemplate;
+import openapi_client.util : resolveTemplate, serializeDeepObject;
 import openapi_client.handler : ResponseHandler;
 
 /**
@@ -76,7 +76,13 @@ class ApiRequest {
    */
   void setHeaderParam(string key, string value) {
     // Headers can contain ASCII characters.
+    logDebug("setHeaderParam(string,string): key=%s, value=%s", key, value);
     headerParams[key] = value;
+  }
+
+  /// ditto
+  void setHeaderParam(T)(string key, Nullable!T value) {
+    setHeaderParam(key, value.get);
   }
 
   /**
@@ -87,12 +93,32 @@ class ApiRequest {
     pathParams[key] = urlEncode(value);
   }
 
+  /// ditto
+  void setPathParam(T)(string key, Nullable!T value) {
+    setPathParam(key, value.get);
+  }
+
   /**
    * URL-encode a value to add as a query-string parameter.
    */
   void setQueryParam(string key, string value) {
     // Path parameters must be URL encoded.
     queryParams[key] = urlEncode(value);
+  }
+
+  /// ditto
+  void setQueryParam(string mode : "deepObject", T : Nullable!T)(string key, T value) {
+    setQueryParam!("deepObject")(key, value.get);
+  }
+
+  // TODO: Add more encoding mechanisms.
+  /// ditto
+  void setQueryParam(string mode : "deepObject", T)(string keyPrefix, T obj) {
+    FormFields fields;
+    serializeDeepObject(serializeToJson(obj), keyPrefix, fields);
+    foreach (string key, string value; fields.byKeyValue()) {
+      setQueryParam(key, value);
+    }
   }
 
   /**
@@ -127,7 +153,7 @@ class ApiRequest {
             if (req.contentType == "application/x-www-form-urlencoded") {
               // TODO: Only perform deepObject encoding if the OpenAPI Spec calls for it.
               auto formFields = serializeDeepObject(reqBody);
-              logDebug("Writing Form Body: ", formFields.toString);
+              logDebug("Writing Form Body: %s", formFields.toString);
               req.writeFormBody(formFields.byKeyValue());
             } else if (req.contentType == "application/json") {
               req.writeJsonBody(reqBody);
@@ -143,31 +169,4 @@ class ApiRequest {
         });
   }
 
-  /**
-   * Serialize an object according to DeepObject style.
-   *
-   * See_Also: https://swagger.io/docs/specification/serialization/
-   */
-  static FormFields serializeDeepObject(T)(T obj) {
-    Json json = serializeToJson(obj);
-    FormFields fields;
-    serializeDeepObject(json, "", fields);
-    return fields;
-  }
-
-  /// ditto
-  static void serializeDeepObject(Json json, string keyPrefix, ref FormFields fields) {
-    if (json.type == Json.Type.array) {
-      foreach (size_t index, Json value; json.byIndexValue) {
-        serializeDeepObject(value, keyPrefix ~ "[" ~ index.to!string ~ "]", fields);
-      }
-    } else if (json.type == Json.Type.object) {
-      foreach (string key, Json value; json.byKeyValue ) {
-        serializeDeepObject(value, keyPrefix == "" ? key : keyPrefix ~ "[" ~ key ~ "]", fields);
-      }
-    } else if (json.type != Json.Type.null_) {
-      // Finally we have an actual value.
-      fields.addField(keyPrefix, json.to!string);
-    }
-  }
 }

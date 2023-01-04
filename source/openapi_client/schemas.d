@@ -376,7 +376,7 @@ string getSchemaCodeType(OasSchema schema, string defaultName = null) {
     } else if (schema.type == "boolean") {
       return "Nullable!(bool)";
     } else if (schema.type == "string") {
-      return "Nullable!(string)";
+      return "string";
     } else if (schema.type == "array") {
       return getSchemaCodeType(schema.items) ~ "[]";
     } else if (schema.type == "object") {
