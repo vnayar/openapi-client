@@ -189,7 +189,9 @@ void generateModuleCode(string targetDir, JsonSchema jsonSchema, OasSchema oasSc
         classBuffer, oasSchema.description, jsonSchema.className, oasSchema.properties);
 
     put("import vibe.data.serialization : optional;\n");
-    put("import vibe.data.json : Json;\n\n");
+    put("import vibe.data.json : Json;\n");
+    put("import builder : AddBuilder;\n");
+    put("\n");
     put("import std.typecons : Nullable;\n\n");
     // While generating the class code, we accumulated external references to import.
     foreach (string schemaRef; getSchemaReferences(oasSchema)) {
@@ -238,6 +240,7 @@ void generateClassCode(
         throw e;
       }
     }
+    put("  mixin AddBuilder!(typeof(this));\n\n");
     put("}\n");
   }
 }
@@ -322,8 +325,8 @@ void generateSchemaInnerClasses(
         generateSchemaInnerClasses(buffer, propertySchema, prefix ~ "  ", null, context);
         generatePropertyCode(buffer, propertyName, propertySchema, prefix ~ "  ");
       }
-      buffer.put(prefix);
-      buffer.put("}\n\n");
+      buffer.put(prefix ~ "  mixin AddBuilder!(typeof(this));\n\n");
+      buffer.put(prefix ~ "}\n\n");
     }
     // If additionalProperties is an object, it's a schema for the data type, but an arbitrary set
     // of attributes may exist.

@@ -133,6 +133,7 @@ void generateModuleHeader(
     put("import vibe.stream.operations : readAllUTF8;\n");
     put("import vibe.data.serialization : optional;\n");
     put("import vibe.data.json : Json, deserializeJson;\n");
+    put("import builder : AddBuilder;\n");
     put("\n");
     put("import " ~ packageRoot ~ ".servers : Servers;\n");
     put("import " ~ packageRoot ~ ".security : Security;\n");
@@ -302,6 +303,7 @@ RequestBodyType generateRequestBodyType(
 }
 
 void generateModuleFooter(Appender!string buffer) {
+  buffer.put("  mixin AddBuilder!(typeof(this));\n\n");
   buffer.put("}\n");
 }
 
@@ -322,6 +324,7 @@ string generateRequestParamType(
     }
     buffer.put(" " ~ getVariableName(parameter.name) ~ ";\n\n");
   }
+  buffer.put(prefix ~ "  mixin AddBuilder!(typeof(this));\n\n");
   buffer.put(prefix ~ "}\n\n");
   return className;
 }
@@ -417,7 +420,7 @@ ResponseHandlerType generateResponseHandlerType(
           ~ defaultHandlerDatum.responseSourceType ~ ")(res.readJson()));\n");
     }
     put(prefix ~ "  }\n\n");
-
+    put(prefix ~ "  mixin AddBuilder!(typeof(this));\n\n");
     put(prefix ~ "}\n\n");
   }
 

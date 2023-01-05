@@ -3,9 +3,9 @@ description "Produces HTTP client code from an OpenAPI Specification."
 authors "Vijay Nayar"
 copyright "Copyright © 2022, Vijay Nayar"
 license "LGPL"
-dependency "vibe-d:http" version="~>0.9.4"
-dependency "vibe-d:data" version="~>0.9.4"
-dependency "openssl" version="~>1.1.6"
+dependency "vibe-d:http" version="~>0.9"
+dependency "vibe-d:data" version="~>0.9"
+dependency "builder" version="~>0.1.0"
 targetPath "target"
 
 # The project can be executed in order to generate OpenAPI client code.
