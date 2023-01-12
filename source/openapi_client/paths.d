@@ -83,7 +83,7 @@ void generateModuleImports(Appender!string buffer, PathEntry[] pathEntries, stri
       }
       // Add any types connected to the request.
       OasRequestBody requestBody = entry.operation.requestBody;
-      if (requestBody !is null && requestBody.required == true) {
+      if (requestBody !is null) {
         OasMediaType mediaType;
         foreach (pair; requestBody.content.byKeyValue()) {
           mediaType = pair.value;
@@ -277,8 +277,6 @@ RequestBodyType generateRequestBodyType(
   if (operationEntry.operation.requestBody is null)
     return null;
   OasRequestBody requestBody = operationEntry.operation.requestBody;
-  if (requestBody.required == false)
-    return null;
 
   string contentType;
   OasMediaType mediaType;
@@ -296,6 +294,8 @@ RequestBodyType generateRequestBodyType(
   requestBodyType.contentType = contentType;
   requestBodyType.codeType = getSchemaCodeType(mediaType.schema, defaultRequestBodyTypeName);
   requestBodyType.mediaType = mediaType;
+  if (requestBodyType.codeType is null)
+    return null;
 
   generateSchemaInnerClasses(buffer, mediaType.schema, prefix, defaultRequestBodyTypeName);
 
@@ -368,14 +368,14 @@ ResponseHandlerType generateResponseHandlerType(
       // Determine if an inner class needs to be defined for the type, or if it references an
       // existing schema.
       string defaultResponseSourceType =
-          operationEntry.operation.operationId ~ "Response" ~ statusCode;
+          operationEntry.operation.operationId ~ "Response" ~ toUpperCamelCase(statusCode);
       string responseSourceType = getSchemaCodeType(mediaType.schema, defaultResponseSourceType);
 
       // Generate an inner class if needed, otherwise, do nothing.
       generateSchemaInnerClasses(buffer, mediaType.schema, prefix ~ "  ", defaultResponseSourceType);
 
       writeCommentBlock(buffer, oasResponse.description, prefix ~ "  ");
-      string handlerMethodName = "handleResponse" ~ statusCode;
+      string handlerMethodName = "handleResponse" ~ toUpperCamelCase(statusCode);
       put(prefix ~ "  void delegate(" ~ responseSourceType ~ " response) "
           ~ handlerMethodName ~ ";\n\n");
 

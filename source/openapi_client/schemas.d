@@ -7,6 +7,7 @@
 module openapi_client.schemas;
 
 import vibe.data.json : Json, deserializeJson;
+import vibe.core.log : logDebug;
 
 import std.container.rbtree : RedBlackTree;
 import std.file : mkdir, mkdirRecurse, write;
@@ -211,6 +212,7 @@ void generateModuleCode(string targetDir, JsonSchema jsonSchema, OasSchema oasSc
     put(classBuffer[]);
   }
   string fileName = buildNormalizedPath(targetDir, tr(jsonSchema.moduleName, ".", "/") ~ ".d");
+  writeln("Writing file: ", fileName);
   mkdirRecurse(dirName(fileName));
   write(fileName, buffer[]);
 }
@@ -250,6 +252,9 @@ void generateClassCode(
  */
 void generatePropertyCode(
     Appender!string buffer, string propertyName, OasSchema propertySchema, string prefix = "  ") {
+  string propertyCodeType = getSchemaCodeType(propertySchema);
+  if (propertyCodeType is null)
+    return;
   if (propertySchema.description !is null) {
     buffer.put(prefix);
     buffer.put("/**\n");
@@ -264,7 +269,7 @@ void generatePropertyCode(
   }
   try {
     buffer.put(prefix ~ "@optional\n");
-    buffer.put(prefix ~ getSchemaCodeType(propertySchema) ~ " "
+    buffer.put(prefix ~ propertyCodeType ~ " "
         ~ getVariableName(propertyName) ~ ";\n\n");
   } catch (Exception e) {
     writeln("Error writing propertyName=", propertyName,
@@ -303,18 +308,32 @@ void generateSchemaInnerClasses(
   // Otherwise, we create static inner classes that match any objects, arrays, or other things that
   // are defined.
   if (schema.type == "object") {
-    if (schema.properties !is null
-        && (schema.additionalProperties.type == Json.Type.Undefined
-            || (schema.additionalProperties.type == Json.Type.Bool
-                && schema.additionalProperties.get!bool == false))) {
+    if (schema.properties is null) {
+      // If additionalProperties is an object, it's a schema for the data type, but an arbitrary set
+      // of attributes may exist.
+      if (schema.additionalProperties.type == Json.Type.Undefined
+          || schema.additionalProperties.type == Json.Type.Bool) {
+        // Do not generate a class, this will be either Json or nothing at all.
+      }
+      else if (schema.additionalProperties.type == Json.Type.Object) {
+        OasSchema propertySchema = deserializeJson!OasSchema(schema.additionalProperties);
+        generateSchemaInnerClasses(buffer, propertySchema, prefix, defaultName, context);
+      }
+    }
+    else {
       // We will have to make a class/struct out of this type from its name.
       string className = (schema.title !is null) ? schema.title.toUpperCamelCase() : defaultName;
+      if (className is null)
+        throw new Exception("Creating an Inner Class for property requires a title or default name!");
       if (className in context) {
         writeln("Avoiding generating duplicate inner class '", className, "'.");
         return;
       }
-      if (className is null)
-        throw new Exception("Creating an Inner Class for property requires a title or default name!");
+      if (schema.additionalProperties.type == Json.Type.Undefined ||
+          (schema.additionalProperties.type == Json.Type.Bool
+              && schema.additionalProperties.get!bool == true)) {
+        writeln("Warning: ", className, " may have additional properties!");
+      }
       buffer.put(prefix);
       buffer.put("static class " ~ className ~ " {\n");
       // Before we start a new context, let the previous one know about the class being defined.
@@ -327,12 +346,6 @@ void generateSchemaInnerClasses(
       }
       buffer.put(prefix ~ "  mixin AddBuilder!(typeof(this));\n\n");
       buffer.put(prefix ~ "}\n\n");
-    }
-    // If additionalProperties is an object, it's a schema for the data type, but an arbitrary set
-    // of attributes may exist.
-    else if (schema.properties is null && schema.additionalProperties.type == Json.Type.Object) {
-      OasSchema propertySchema = deserializeJson!OasSchema(schema.additionalProperties);
-      generateSchemaInnerClasses(buffer, propertySchema, prefix, defaultName, context);
     }
   }
   // The type might be an array and it's schema could be hidden beneath.
@@ -381,29 +394,37 @@ string getSchemaCodeType(OasSchema schema, string defaultName = null) {
     } else if (schema.type == "string") {
       return "string";
     } else if (schema.type == "array") {
-      return getSchemaCodeType(schema.items) ~ "[]";
+      string arrayCodeType = getSchemaCodeType(schema.items);
+      return arrayCodeType !is null ? arrayCodeType ~ "[]" : null;
     } else if (schema.type == "object") {
       // If we are missing both properties and additionalProperties, we assume a generic string[string] object.
-      if (schema.properties is null && schema.additionalProperties.type == Json.Type.Undefined) {
-        return "Json";
+      if (schema.properties is null) {
+        // If additionalProperties is an object, it's a schema for the data type, but any number of
+        // fields may exist.
+        if (schema.additionalProperties.type == Json.Type.Object) {
+          OasSchema propertySchema = deserializeJson!OasSchema(schema.additionalProperties);
+          string propertyCodeType = getSchemaCodeType(propertySchema);
+          return propertyCodeType !is null ? propertyCodeType ~ "[string]" : null;
+        }
+        // If additional properties exist, but we have no type information, it can be anything.
+        else if (schema.additionalProperties.type == Json.Type.Undefined
+            || (schema.additionalProperties.type == Json.Type.Bool
+                && schema.additionalProperties.get!bool == true)) {
+          return "Json";
+        }
+        // If there are no properties, and no additional properties, then it's not a type at all.
+        else {
+          return null;
+        }
       }
-      // If additionalProperties is false or missing, then the fields in properties must be
-      // complete, we can make a class or struct.
-      else if (schema.additionalProperties.type == Json.Type.Undefined
-          || (schema.additionalProperties.type == Json.Type.Bool
-              && schema.additionalProperties.get!bool == false)) {
+      // If properties are present we can safely assume a class will be created.
+      else {
         // We will have to make a class/struct out of this type from its name.
         if (schema.title !is null)
           return schema.title.toUpperCamelCase();
         else if (defaultName !is null)
           return defaultName;
         throw new Exception("Creating a named object type requires a title or defaultName!");
-      }
-      // If additionalProperties is an object, it's a schema for the data type, but any number of
-      // fields may exist.
-      else if (schema.additionalProperties.type == Json.Type.Object) {
-        OasSchema propertySchema = deserializeJson!OasSchema(schema.additionalProperties);
-        return getSchemaCodeType(propertySchema) ~ "[string]";
       }
     }
   }

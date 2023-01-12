@@ -234,7 +234,9 @@ void serializeDeepObject(Json json, string keyPrefix, ref FormFields fields) {
     foreach (string key, Json value; json.byKeyValue ) {
       serializeDeepObject(value, keyPrefix == "" ? key : keyPrefix ~ "[" ~ key ~ "]", fields);
     }
-  } else if (json.type != Json.Type.null_
+  } else if (
+      json.type != Json.Type.undefined
+      && json.type != Json.Type.null_
       && !(json.type == Json.Type.string && json.get!string == "")) {
     // Finally we have an actual value.
     fields.addField(keyPrefix, json.to!string);

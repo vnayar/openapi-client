@@ -7,6 +7,8 @@ dependency "vibe-d:http" version="~>0.9"
 dependency "vibe-d:data" version="~>0.9"
 dependency "builder" version="~>0.1.0"
 targetPath "target"
+// Currently vibe 0.9.5 contains a large number of deprecation warnings.
+buildRequirements "silenceDeprecations"
 
 # The project can be executed in order to generate OpenAPI client code.
 configuration "application" {
