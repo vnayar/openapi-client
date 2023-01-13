@@ -9,6 +9,10 @@ https://swagger.io/specification/
 Initially, this library was developed in order to support the generation of a client for the Stripe
 API, however, it is intended to be a general tool usable for all OpenAPI specifications.
 
+Many notable companies, such as Amazon, Google, Microsoft, Slack, and many more publish public
+OpenAPI specifications that can be used by this library to generate D clients. A more comprehensive
+list of public OpenAPI specifications can be found at [APIs.guru](https://apis.guru/).
+
 ## Current Features
 
 1. An executable that, when given an OpenAPI3 JSON specification file, writes a client in D.
@@ -21,6 +25,7 @@ API, however, it is intended to be a general tool usable for all OpenAPI specifi
       status code defined in the OpenAPI3 specification.
 4. HTTP requests and responses in `application/json` format.
 5. HTTP requests in `application/x-www-form-urlencoded` format, encoded in "deepObject" format.
+6. A traditional interative interface and a "builder API" interface for clearer coding.
 
 ## Compilation
 
@@ -73,9 +78,10 @@ configuration "generate" {
 
 ## Generated Client Usage
 
-The following code snippet makes use of the client library generated from the Stripe OpenAPI specification.
+The following code snippet makes use of the client library generated from the Stripe OpenAPI
+specification using the traditional iterative approach:
 
-``` d
+```d
 import stripe.security : Security;
 import stripe.service.v1_charges_service : V1ChargesService;
 import vibe.data.json : serializeToJsonString;
@@ -92,6 +98,8 @@ auto service = new V1ChargesService();
 
 // Each endpoint has a "Params" object which covers any path, query-string, header, or cookie parameters.
 auto params = new V1ChargesService.GetChargesParams();
+params.customer = "Bob";
+params.starting_after = "abcde";
 
 // Some requests have a request body, which will be an argument to the method, e.g. "postCharges".
 
@@ -106,6 +114,26 @@ handler.handleResponse200 = (V1ChargesService.GetChargesResponseHandler.ChargeLi
 
 // Now call the desired endpoint and your handler will be invoked depending on the response.
 service.getCharges(params, handler);
+```
+
+If you prefer a "builder API" style of programming, then the following code is functionally identical:
+
+```d
+import stripe.security : Security;
+import stripe.service.v1_charges_service : V1ChargesService;
+import vibe.data.json : serializeToJsonString;
+
+auto service = new V1ChargesService();
+service.getCharges(
+    V1ChargesService.GetChargesParams().builder()
+        .customer("Bob")
+        .starting_after("abcde")
+        .build(),
+    V1ChargesService.GetChargesResponseHandler.builder()
+        .handleResponse200((V1ChargesService.GetChargesResponseHandler.ChargeList chargeList) {
+          writeln(serializeToJsonString(chargeList));
+        })
+        .build());
 ```
 
 If you are familiar with the HTTP interface of the API you intend to use, you will find that the
