@@ -10,6 +10,7 @@ import std.array : array, split, appender, Appender;
 import std.algorithm : map, joiner;
 import std.array : appender;
 import std.conv : to;
+import std.traits : isBasicType;
 import std.uni : toUpper, toLower, isUpper, isLower, isAlpha, isAlphaNum;
 
 /**
@@ -247,7 +248,10 @@ void serializeDeepObject(Json json, string keyPrefix, ref FormFields fields) {
  * A simple check whether an object is present, permitting consistency with [std.typecons.Nullable].
  */
 bool isNull(T)(const T obj) nothrow pure @nogc @safe {
-  return obj is null;
+  static if (isBasicType!(T))
+    return false;
+  else
+    return obj is null;
 }
 
 /// ditto

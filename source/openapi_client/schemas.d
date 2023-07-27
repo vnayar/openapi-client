@@ -12,14 +12,14 @@ import vibe.core.log : logDebug;
 import std.container.rbtree : RedBlackTree;
 import std.file : mkdir, mkdirRecurse, write;
 import std.array : array, appender, split, Appender;
-import std.algorithm : skipOver;
+import std.algorithm : canFind, skipOver;
 import std.path : buildNormalizedPath, dirName;
 import std.string : tr;
 import std.range : tail, takeOne;
 import std.stdio : writeln;
 
 import openapi : OasDocument, OasSchema;
-import openapi_client.util : toUpperCamelCase, wordWrapText;
+import openapi_client.util : toUpperCamelCase, toLowerCamelCase, wordWrapText;
 
 /**
  * Descriptive information about a OpenAPI schema and the Dlang code that represents it.
@@ -180,23 +180,26 @@ static immutable RedBlackTree!string RESERVED_WORDS = new RedBlackTree!string([
  * Specification schema.
  */
 void generateModuleCode(string targetDir, JsonSchema jsonSchema, OasSchema oasSchema, string packageRoot) {
+  string fileName = buildNormalizedPath(targetDir, tr(jsonSchema.moduleName, ".", "/") ~ ".d");
+  logDebug("Generating module: %s", fileName);
   auto buffer = appender!string();
   with (buffer) {
     put("// File automatically generated from OpenAPI spec.\n");
     put("module " ~ jsonSchema.moduleName ~ ";\n\n");
     // We generate the class in a separate buffer, because it's production may add dependencies.
     auto classBuffer = appender!string();
-    generateClassCode(  // TODO: Pass the entire schema as an argument, not just parts of it.
-        classBuffer, oasSchema.description, jsonSchema.className, oasSchema.properties);
+    generateClassCode(classBuffer, oasSchema, jsonSchema.className);
 
-    put("import vibe.data.serialization : optional;\n");
+    put("import vibe.data.serialization : vibeName = name, vibeOptional = optional, vibeEmbedNullable = embedNullable;\n");
     put("import vibe.data.json : Json;\n");
     put("import builder : AddBuilder;\n");
     put("\n");
     put("import std.typecons : Nullable;\n\n");
     // While generating the class code, we accumulated external references to import.
     foreach (string schemaRef; getSchemaReferences(oasSchema)) {
+      logDebug("Adding import for schema reference: %s", schemaRef);
       string schemaName = getSchemaNameFromRef(schemaRef);
+      logDebug("Adding import for schema name: %s", schemaName);
       // Do not add an import for self-references.
       if (schemaName == jsonSchema.schemaName)
         continue;
@@ -211,7 +214,6 @@ void generateModuleCode(string targetDir, JsonSchema jsonSchema, OasSchema oasSc
     // Finally add our class code to the module file.
     put(classBuffer[]);
   }
-  string fileName = buildNormalizedPath(targetDir, tr(jsonSchema.moduleName, ".", "/") ~ ".d");
   writeln("Writing file: ", fileName);
   mkdirRecurse(dirName(fileName));
   write(fileName, buffer[]);
@@ -221,7 +223,9 @@ void generateModuleCode(string targetDir, JsonSchema jsonSchema, OasSchema oasSc
  * Writes to a buffer a Dlang class representing an OpenAPI Specification schema.
  */
 void generateClassCode(
-    Appender!string buffer, string description, string className, OasSchema[string] properties) {
+    Appender!string buffer, OasSchema schema, string className) {
+  string description = schema.description;
+  OasSchema[string] properties = schema.properties;
   with (buffer) {
     // Display the class description and declare it.
     put("/**\n");
@@ -235,8 +239,10 @@ void generateClassCode(
     // Define individual properties of the class.
     foreach (string propertyName, OasSchema propertySchema; properties) {
       try {
-        generateSchemaInnerClasses(buffer, propertySchema, "  ");
-        generatePropertyCode(buffer, propertyName, propertySchema, "  ");
+        generateSchemaInnerClasses(buffer, propertySchema, "  ", propertyName.toUpperCamelCase());
+        generatePropertyCode(
+            buffer, propertyName, propertySchema,
+            "  ", canFind(schema.required, propertyName));
       } catch (Exception e) {
         writeln("Error writing className=", className);
         throw e;
@@ -251,10 +257,18 @@ void generateClassCode(
  * Produce code for a class declaring a named property based on an [OasSchema] for the property.
  */
 void generatePropertyCode(
-    Appender!string buffer, string propertyName, OasSchema propertySchema, string prefix = "  ") {
-  string propertyCodeType = getSchemaCodeType(propertySchema);
+    Appender!string buffer, string propertyName, OasSchema propertySchema,
+    string prefix = "  ", bool required = true) {
+  // Determine the type of the property.
+  import std.conv : to;
+  logDebug("generatePropertyCode 0: propertyName=%s, required=%s", propertyName, required.to!string);
+  // TODO: Use the "schema.required" in the parent schema to determine which are nullable.
+  string propertyCodeType = getSchemaCodeType(propertySchema, propertyName.toUpperCamelCase());
   if (propertyCodeType is null)
     return;
+  if (!required)
+    propertyCodeType = "Nullable!(" ~ propertyCodeType ~ ")";
+
   if (propertySchema.description !is null) {
     buffer.put(prefix);
     buffer.put("/**\n");
@@ -268,7 +282,10 @@ void generatePropertyCode(
     buffer.put(" */\n");
   }
   try {
-    buffer.put(prefix ~ "@optional\n");
+    buffer.put(prefix ~ "@vibeName(\"" ~ propertyName ~ "\")\n");
+    buffer.put(prefix ~ "@vibeOptional\n");
+    if (!required)
+      buffer.put(prefix ~ "@vibeEmbedNullable\n");
     buffer.put(prefix ~ propertyCodeType ~ " "
         ~ getVariableName(propertyName) ~ ";\n\n");
   } catch (Exception e) {
@@ -284,10 +301,10 @@ void generatePropertyCode(
  * "scope_".
  */
 static string getVariableName(string propertyName) {
-  if (propertyName in RESERVED_WORDS)
-    return propertyName ~ "_";
-  else
-    return propertyName;
+  string variableName = propertyName.toLowerCamelCase();
+  if (variableName in RESERVED_WORDS)
+    variableName ~= "_";
+  return variableName;
 }
 
 /**
@@ -307,7 +324,8 @@ void generateSchemaInnerClasses(
     context = new RedBlackTree!string();
   // Otherwise, we create static inner classes that match any objects, arrays, or other things that
   // are defined.
-  if (schema.type == "object") {
+  if (schema.type == "object" || schema.properties !is null) {
+    logDebug("Generating innerClass with defaultName=%s", prefix, defaultName);
     if (schema.properties is null) {
       // If additionalProperties is an object, it's a schema for the data type, but an arbitrary set
       // of attributes may exist.
@@ -341,15 +359,19 @@ void generateSchemaInnerClasses(
       // Start a new context, because the inner class creates a new naming scope.
       context = new RedBlackTree!string();
       foreach (string propertyName, OasSchema propertySchema; schema.properties) {
-        generateSchemaInnerClasses(buffer, propertySchema, prefix ~ "  ", null, context);
-        generatePropertyCode(buffer, propertyName, propertySchema, prefix ~ "  ");
+        logDebug("Generating propertyName: %s", propertyName);
+        generateSchemaInnerClasses(
+            buffer, propertySchema, prefix ~ "  ", propertyName.toUpperCamelCase(), context);
+        generatePropertyCode(
+            buffer, propertyName, propertySchema,
+            prefix ~ "  ", canFind(schema.required, propertyName));
       }
       buffer.put(prefix ~ "  mixin AddBuilder!(typeof(this));\n\n");
       buffer.put(prefix ~ "}\n\n");
     }
   }
   // The type might be an array and it's schema could be hidden beneath.
-  else if (schema.type == "array" && schema.items !is null) {
+  else if (schema.type == "array" || schema.items !is null) {
     generateSchemaInnerClasses(buffer, schema.items, prefix, defaultName, context);
   }
   // Sometimes data has no explicit properties, but we can infer them from validation data.
@@ -365,7 +387,7 @@ void generateSchemaInnerClasses(
  *   defaultName = If a structured type can be created as an inner class, the default name to use
  *     for that class.
  */
-string getSchemaCodeType(OasSchema schema, string defaultName = null) {
+string getSchemaCodeType(OasSchema schema, string defaultName = null, bool required = true) {
   // This could be a reference to an existing type.
   if (schema.ref_ !is null) {
     string schemaName = getSchemaNameFromRef(schema.ref_);
@@ -373,30 +395,29 @@ string getSchemaCodeType(OasSchema schema, string defaultName = null) {
     return getClassNameFromSchemaName(schemaName);
   }
   // First check if we have a primitive type.
-  // TODO: Use the "schema.required" to determine which are nullable.
   else if (schema.type !is null) {
     if (schema.type == "integer") {
       if (schema.format == "int32")
-        return "Nullable!(int)";
+        return "int";
       else if (schema.format == "int64")
-        return "Nullable!(long)";
+        return "long";
       else if (schema.format == "unix-time")
-        return "Nullable!(long)";
-      return "Nullable!(int)";
+        return "long";
+      return "int";
     } else if (schema.type == "number") {
       if (schema.format == "float")
-        return "Nullable!(float)";
+        return "float";
       else if (schema.format == "double")
-        return "Nullable!(double)";
-      return "Nullable!(float)";
+        return "double";
+      return "float";
     } else if (schema.type == "boolean") {
-      return "Nullable!(bool)";
+      return "bool";
     } else if (schema.type == "string") {
       return "string";
-    } else if (schema.type == "array") {
-      string arrayCodeType = getSchemaCodeType(schema.items);
+    } else if (schema.type == "array" || schema.items !is null) {
+      string arrayCodeType = getSchemaCodeType(schema.items, defaultName);
       return arrayCodeType !is null ? arrayCodeType ~ "[]" : null;
-    } else if (schema.type == "object") {
+    } else if (schema.type == "object" || schema.properties !is null) {
       // If we are missing both properties and additionalProperties, we assume a generic string[string] object.
       if (schema.properties is null) {
         // If additionalProperties is an object, it's a schema for the data type, but any number of
@@ -450,9 +471,9 @@ string[] getSchemaReferences(OasSchema schema) {
 private void getSchemaReferences(OasSchema schema, ref RedBlackTree!string refs) {
   if (schema.ref_ !is null) {
     refs.insert(schema.ref_);
-  } else if (schema.type == "array") {
+  } else if (schema.type == "array" || schema.items !is null) {
     getSchemaReferences(schema.items, refs);
-  } else if (schema.type == "object") {
+  } else if (schema.type == "object" || schema.properties !is null) {
     if (schema.properties !is null) {
       foreach (string propertyName, OasSchema propertySchema; schema.properties) {
         getSchemaReferences(propertySchema, refs);

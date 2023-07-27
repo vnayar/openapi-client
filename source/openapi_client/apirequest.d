@@ -139,13 +139,13 @@ class ApiRequest {
    */
   void makeRequest(RequestT)(RequestT reqBody, ResponseHandler handler) {
     string url = getUrl();
-    logDebug("makeRequest 0: url=%s", url);
+    logDebug("makeRequest 0: url=%s, reqBody=%s", url, serializeToJson(reqBody));
     requestHTTP(
         url,
         (scope HTTPClientRequest req) {
           req.method = method;
           foreach (pair; headerParams.byKeyValue()) {
-            logDebug("Adding header: %s: %s", pair.key, pair.value);
+            logDebug("makeRequest 1: Adding header  %s: %s", pair.key, pair.value);
             req.headers[pair.key] = pair.value;
           }
           if (reqBody !is null) {
@@ -163,7 +163,7 @@ class ApiRequest {
           }
         },
         (scope HTTPClientResponse res) {
-          logDebug("makeRequest 1: handler=%s", handler);
+          logDebug("makeRequest 2: handler=%s", handler);
           if (handler !is null)
             handler.handleResponse(res);
         });

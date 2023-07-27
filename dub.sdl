@@ -5,7 +5,7 @@ copyright "Copyright © 2022, Vijay Nayar"
 license "LGPL"
 dependency "vibe-d:http" version="~>0.9"
 dependency "vibe-d:data" version="~>0.9"
-dependency "builder" version="~>0.1.0"
+dependency "builder" version="~>0.2.0"
 targetPath "target"
 // Currently vibe 0.9.5 contains a large number of deprecation warnings.
 buildRequirements "silenceDeprecations"

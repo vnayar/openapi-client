@@ -45,7 +45,7 @@ void writePathFiles(OasDocument oasDocument, string targetDir, string packageRoo
   foreach (string pathRoot, PathEntry[] pathEntries; pathEntriesByPathRoot) {
     writeln("Generating service for ", pathRoot, " with ", pathEntries.length, " path items.");
     auto buffer = appender!string();
-    string moduleName = pathRoot[1..$].tr("/", "_") ~ "_service";
+    string moduleName = pathRoot[1..$].tr("-/", "_") ~ "_service";
     generateModuleHeader(buffer, packageRoot, moduleName);
     generateModuleImports(buffer, pathEntries, packageRoot);
     // TODO: Generate imports that originate from the data types created here.
@@ -188,7 +188,9 @@ void generatePathItemMethods(
           buffer,
           join(
               [
+                pathItem.summary,
                 pathItem.description,
+                operationEntry.operation.summary,
                 operationEntry.operation.description,
                 "See_Also: HTTP " ~ operationEntry.method  ~ " `" ~ path ~ "`"
               ],
@@ -342,7 +344,7 @@ ResponseHandlerType generateResponseHandlerType(
   if (operationEntry.operation.responses is null)
     return null;
   OasResponse[string] responses = operationEntry.operation.responses;
-  string typeName = operationEntry.operation.operationId ~ "ResponseHandler";
+  string typeName = (operationEntry.operation.operationId ~ "ResponseHandler").toUpperCamelCase();
   with (buffer) {
     put(prefix ~ "static class " ~ typeName ~ " : ResponseHandler {\n\n");
 
@@ -397,10 +399,7 @@ ResponseHandlerType generateResponseHandlerType(
         int statusCodeMin = datum.statusCode.tr("x", "0").to!int;
         int statusCodeMax = datum.statusCode.tr("x", "9").to!int;
         put(prefix ~ "    if (res.statusCode >= " ~ statusCodeMin.to!string ~ " && res.statusCode <= "
-            ~ statusCodeMax.to!string ~ ") {\n");
-        put(prefix ~ "      if (" ~ datum.handlerMethodName ~ " is null) "
-            ~ "throw new Exception(\"Unhandled response status code "
-            ~ datum.statusCode ~ "\");\n");
+            ~ statusCodeMax.to!string ~ " && " ~ datum.handlerMethodName ~ " !is null) {\n");
         // TODO: Support additional response body types.
         if (datum.contentType == "application/json") {
           put(prefix ~ "      " ~ datum.handlerMethodName ~ "(deserializeJson!("
@@ -413,12 +412,17 @@ ResponseHandlerType generateResponseHandlerType(
       }
     }
     if (defaultHandlerDatum !is null) {
-      put(prefix ~ "    if (" ~ defaultHandlerDatum.handlerMethodName ~ " is null) "
-          ~ "throw new Exception(\"Unhandled response status code "
-          ~ defaultHandlerDatum.statusCode ~ "\");\n");
-      put(prefix ~ "    " ~ defaultHandlerDatum.handlerMethodName ~ "(deserializeJson!("
-          ~ defaultHandlerDatum.responseSourceType ~ ")(res.readJson()));\n");
+      put(prefix
+          ~ "    if (" ~ defaultHandlerDatum.handlerMethodName ~ " !is null) {\n"
+          ~ "      " ~ defaultHandlerDatum.handlerMethodName ~ "(deserializeJson!("
+          ~ defaultHandlerDatum.responseSourceType ~ ")(res.readJson()));\n"
+          ~ "      return;\n"
+          ~ "    }\n");
     }
+    put(prefix
+        ~ "    throw new Exception(\"Unhandled response status code: \"\n"
+        ~ "        ~ res.statusCode.to!string\n"
+        ~ "        ~ \", Body: \" ~ res.bodyReader().readAllUTF8());\n");
     put(prefix ~ "  }\n\n");
     put(prefix ~ "  mixin AddBuilder!(typeof(this));\n\n");
     put(prefix ~ "}\n\n");
