@@ -3,7 +3,7 @@
 	"versions": {
 		"botan": "1.12.19",
 		"botan-math": "1.0.3",
-		"builder": "0.2.0",
+		"builder": "0.2.1",
 		"diet-ng": "1.8.1",
 		"eventcore": "0.9.25",
 		"libasync": "0.8.6",
