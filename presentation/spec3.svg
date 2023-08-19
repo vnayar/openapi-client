@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" contentStyleType="text/css" height="209px" preserveAspectRatio="none" style="width:453px;height:209px;background:#FFFFFF;" version="1.1" viewBox="0 0 453 209" width="453px" zoomAndPan="magnify"><defs/><g><!--MD5=[01d1d3f10adcbcbb014a4902c7c421d3]
+entity DCode--><g id="elem_DCode"><rect fill="#FFC0CB" height="42.0679" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:2.0;" width="78" x="25" y="7"/><polygon fill="#FFC0CB" points="86,12,86,26,98,26,98,18,92,12,86,12" style="stroke:#181818;stroke-width:2.0;"/><line style="stroke:#181818;stroke-width:2.0;" x1="92" x2="92" y1="12" y2="18"/><line style="stroke:#181818;stroke-width:2.0;" x1="98" x2="92" y1="18" y2="18"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="48" x="35" y="34.9659">D Code</text></g><!--MD5=[f9437ce8db3e76c82f2eb13caf440b0c]
+entity JavaCode--><g id="elem_JavaCode"><rect fill="#87CEFA" height="42.0679" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:2.0;" width="95" x="16.5" y="84"/><polygon fill="#87CEFA" points="94.5,89,94.5,103,106.5,103,106.5,95,100.5,89,94.5,89" style="stroke:#181818;stroke-width:2.0;"/><line style="stroke:#181818;stroke-width:2.0;" x1="100.5" x2="100.5" y1="89" y2="95"/><line style="stroke:#181818;stroke-width:2.0;" x1="106.5" x2="100.5" y1="95" y2="95"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="65" x="26.5" y="111.9659">Java Code</text></g><!--MD5=[ad4738d350a93c2cd5ccb1a5d333c3c1]
+entity PyCode--><g id="elem_PyCode"><rect fill="#98FB98" height="42.0679" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:2.0;" width="114" x="7" y="161"/><polygon fill="#98FB98" points="104,166,104,180,116,180,116,172,110,166,104,166" style="stroke:#181818;stroke-width:2.0;"/><line style="stroke:#181818;stroke-width:2.0;" x1="110" x2="110" y1="166" y2="172"/><line style="stroke:#181818;stroke-width:2.0;" x1="116" x2="110" y1="172" y2="172"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="84" x="17" y="188.9659">Python Code</text></g><!--MD5=[fa21e000831c35a4f99beb884d66aa37]
+entity OpenAPISpec--><g id="elem_OpenAPISpec"><rect fill="#F1F1F1" height="42.0679" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:2.0;" width="125" x="165" y="84"/><polygon fill="#F1F1F1" points="273,89,273,103,285,103,285,95,279,89,273,89" style="stroke:#181818;stroke-width:2.0;"/><line style="stroke:#181818;stroke-width:2.0;" x1="279" x2="279" y1="89" y2="95"/><line style="stroke:#181818;stroke-width:2.0;" x1="285" x2="279" y1="95" y2="95"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="95" x="175" y="111.9659">OpenAPI Spec</text></g><!--MD5=[79b4c214fd6d7d0611418104447b5881]
+entity JSClient--><g id="elem_JSClient"><rect fill="#F1F1F1" height="42.0679" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:2.0;" width="85" x="345" y="7"/><polygon fill="#F1F1F1" points="413,12,413,26,425,26,425,18,419,12,413,12" style="stroke:#181818;stroke-width:2.0;"/><line style="stroke:#181818;stroke-width:2.0;" x1="419" x2="419" y1="12" y2="18"/><line style="stroke:#181818;stroke-width:2.0;" x1="425" x2="419" y1="18" y2="18"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="55" x="355" y="34.9659">JS Client</text></g><!--MD5=[7063d7ae45b201e56669ed043297697f]
+entity DartClient--><g id="elem_DartClient"><rect fill="#F1F1F1" height="42.0679" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:2.0;" width="102" x="336.5" y="84"/><polygon fill="#F1F1F1" points="421.5,89,421.5,103,433.5,103,433.5,95,427.5,89,421.5,89" style="stroke:#181818;stroke-width:2.0;"/><line style="stroke:#181818;stroke-width:2.0;" x1="427.5" x2="427.5" y1="89" y2="95"/><line style="stroke:#181818;stroke-width:2.0;" x1="433.5" x2="427.5" y1="95" y2="95"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="72" x="346.5" y="111.9659">Dart Client</text></g><!--MD5=[aa6d8f435be211b1eaa48ba0352e9551]
+entity Docs--><g id="elem_Docs"><rect fill="#F1F1F1" height="42.0679" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:2.0;" width="107" x="334" y="161"/><polygon fill="#F1F1F1" points="424,166,424,180,436,180,436,172,430,166,424,166" style="stroke:#181818;stroke-width:2.0;"/><line style="stroke:#181818;stroke-width:2.0;" x1="430" x2="430" y1="166" y2="172"/><line style="stroke:#181818;stroke-width:2.0;" x1="436" x2="430" y1="172" y2="172"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="77" x="344" y="188.9659">Public Docs</text></g><!--MD5=[8bc10f9a7f2b598c116c329828b40a0b]
+link JavaCode to OpenAPISpec--><g id="link_JavaCode_OpenAPISpec"><path d="M111.71,105 C126.61,105 143.4,105 159.45,105 " fill="none" id="JavaCode-to-OpenAPISpec" style="stroke:#181818;stroke-width:2.0;stroke-dasharray:7.0,7.0;"/><polygon fill="#181818" points="164.86,105,155.86,101,159.86,105,155.86,109,164.86,105" style="stroke:#181818;stroke-width:2.0;"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="26" x="130" y="100.8281">uses</text></g><!--MD5=[7e3fd123758ca2469936c53a2274230e]
+link DCode to OpenAPISpec--><g id="link_DCode_OpenAPISpec"><path d="M103.27,46.25 C125.48,56.84 153.69,70.29 177.51,81.64 " fill="none" id="DCode-to-OpenAPISpec" style="stroke:#181818;stroke-width:2.0;stroke-dasharray:7.0,7.0;"/><polygon fill="#181818" points="182.21,83.88,175.7948,76.407,177.6931,81.7359,172.3642,83.6341,182.21,83.88" style="stroke:#181818;stroke-width:2.0;"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="26" x="130" y="55.8281">uses</text></g><!--MD5=[40ccc5fc989657bdc20b8d4fc2326b79]
+link PyCode to OpenAPISpec--><g id="link_PyCode_OpenAPISpec"><path d="M109.13,160.96 C130.41,150.82 155.98,138.62 177.82,128.21 " fill="none" id="PyCode-to-OpenAPISpec" style="stroke:#181818;stroke-width:2.0;stroke-dasharray:7.0,7.0;"/><polygon fill="#181818" points="182.42,126.02,172.5742,126.2659,177.9031,128.1641,176.0048,133.493,182.42,126.02" style="stroke:#181818;stroke-width:2.0;"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="26" x="130" y="134.8281">uses</text></g><!--MD5=[34c643e32b2b431d9ac9b662cef90ea2]
+reverse link OpenAPISpec to JSClient--><g id="link_OpenAPISpec_JSClient"><path d="M276.27,81.72 C298.09,71.09 323.7,58.6 344.74,48.35 " fill="none" id="OpenAPISpec-backto-JSClient" style="stroke:#181818;stroke-width:2.0;stroke-dasharray:7.0,7.0;"/><polygon fill="#181818" points="271.67,83.96,281.5118,83.5883,276.1592,81.7583,277.9891,76.4056,271.67,83.96" style="stroke:#181818;stroke-width:2.0;"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="26" x="299" y="55.8281">uses</text></g><!--MD5=[6d2db52fd619c99008d42b9675c5c019]
+reverse link OpenAPISpec to DartClient--><g id="link_OpenAPISpec_DartClient"><path d="M295.07,105 C308.81,105 323.06,105 336.1,105 " fill="none" id="OpenAPISpec-backto-DartClient" style="stroke:#181818;stroke-width:2.0;stroke-dasharray:7.0,7.0;"/><polygon fill="#181818" points="290.04,105,299.04,109,295.04,105,299.04,101,290.04,105" style="stroke:#181818;stroke-width:2.0;"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="26" x="299" y="100.8281">uses</text></g><!--MD5=[dff4ecfe24b9abe0c449f4643e5182ad]
+reverse link OpenAPISpec to Docs--><g id="link_OpenAPISpec_Docs"><path d="M276.18,128.23 C297.55,138.65 322.57,150.84 343.38,160.98 " fill="none" id="OpenAPISpec-backto-Docs" style="stroke:#181818;stroke-width:2.0;stroke-dasharray:7.0,7.0;"/><polygon fill="#181818" points="271.67,126.04,277.9891,133.5944,276.1592,128.2417,281.5118,126.4117,271.67,126.04" style="stroke:#181818;stroke-width:2.0;"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="26" x="299" y="134.8281">uses</text></g><!--MD5=[26be3c87c9bdfb03c7a9d8c425bb08c9]
+@startuml
+left to right direction
+skinparam ranksep 10
+skinparam Arrow {
+  Thickness 2
+  FontSize 12
+}
+skinparam Artifact {
+  BorderThickness 2
+  FontSize 14
+}
+
+artifact "D Code" as DCode #Pink
+artifact "Java Code" as JavaCode #LightSkyBlue
+artifact "Python Code" as PyCode #PaleGreen
+artifact "OpenAPI Spec" as OpenAPISpec
+artifact "JS Client" as JSClient
+artifact "Dart Client" as DartClient
+artifact "Public Docs" as Docs
+
+JavaCode ..> OpenAPISpec : uses
+DCode ..> OpenAPISpec : uses
+PyCode ..> OpenAPISpec : uses
+OpenAPISpec <.. JSClient : uses
+OpenAPISpec <.. DartClient : uses
+OpenAPISpec <.. Docs : uses
+@enduml
+
+PlantUML version 1.2022.8(Sun Sep 25 11:00:33 CEST 2022)
+(GPL source distribution)
+Java Runtime: OpenJDK Runtime Environment
+JVM: OpenJDK 64-Bit Server VM
+Default Encoding: UTF-8
+Language: en
+Country: US
+--></g></svg>

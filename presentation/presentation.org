@@ -1,0 +1,818 @@
+#+TITLE:OpenAPI and Service Integration
+#+AUTHOR: Vijay Paul Nayar
+#+EMAIL: vijay.nayar@funnel-labs.io
+#+DATE: 2023-08-29 Tue
+#+options: H:2
+#+latex_class: beamer
+#+latex_class_options: [bigger]
+#+columns: %45ITEM %10BEAMER_env(Env) %10BEAMER_act(Act) %4BEAMER_col(Col) %8BEAMER_opt(Opt)
+#+beamer_header: \AtBeginSection[]{\begin{frame}<beamer>\frametitle{Presentat‌​‌​ion Agenda}\huge\secname\end{frame}}
+#+beamer_theme: Rochester [height=20pt]
+#+beamer_color_theme: dolphin
+#+beamer_font_theme:
+#+beamer_inner_theme:
+#+beamer_outer_theme:
+#+beamer_header:
+
+# Using Beamer and org-mode together: https://orgmode.org/worg/exporters/beamer/tutorial.html
+
+** Who am I?
+
+*** Picture                                                           :BMCOL:
+    :PROPERTIES:
+    :BEAMER_col: 0.4
+    :END:
+
+#+ATTR_LATEX: :width 3cm
+file:PortraitLowRes.jpg
+
+Vijay Paul Nayar
+- Java developer and CTO of a FinTech
+- Left CTO role to found own company
+
+*** Company
+    :PROPERTIES:
+    :BEAMER_col: 0.6
+    :END:
+
+#+ATTR_LATEX: :width 3cm
+file:funnel-icon.png
+
+*Funnel-Labs.io*: Performant D apps.
+- *Funnel*: High performance data storage system for ride-hailing and micro-mobility companies.
+- *Fiveum*: Office chat and video built to minimize interruptions and improve focus.
+
+** How did OpenAPI Come Up?
+
+*** Text                                                :B_column:BMCOL:
+    :PROPERTIES:
+    :BEAMER_env: column
+    :BEAMER_col: 0.6
+    :END:
+
+- Built Funnel Service MVP...
+  - How do customers pay for the service?
+    - Most services use credit-cards
+  - How to easily add credit-card support?
+    - Stripe is popular and common
+  - How to use Stripe?
+    - Stripe has a REST API, but it's huge
+  - How do Java/Python do this?
+    - Generated OpenAPI client
+  - Do such tools exist in D?
+    - *No*, but they could.
+
+*** Picture                                              :B_column:BMCOL:
+    :PROPERTIES:
+    :BEAMER_env: column
+    :BEAMER_col: 0.4
+    :END:
+
+#+LATEX: \resizebox{\textwidth}{!}{
+file:StripeCheckout.png
+#+LATEX: }
+
+* Introduction
+
+** External Service Interoperability
+
+*** Text                                                :B_column:BMCOL:
+    :PROPERTIES:
+    :BEAMER_env: column
+    :BEAMER_col: 0.6
+    :END:
+
+Companies often depend on useful external services.
+
+For example:
+- Stripe (financial transactions)
+- OpenAI (categorize sentiment, question/answer, content generation)
+- Slack (real-time communication)
+
+Hand written clients are *time-consuming* and *error-prone*
+
+*** Logos                                                    :B_column:BMCOL:
+    :PROPERTIES:
+    :BEAMER_env: column
+    :BEAMER_col: 0.4
+    :END:
+
+#+ATTR_LATEX: :width 4cm
+file:Stripe_Logo_revised_2016.svg
+
+#+ATTR_LATEX: :width 4cm
+file:OpenAI_Logo.svg
+
+#+ATTR_LATEX: :width 4cm
+file:Slack_Technologies_Logo.svg
+
+** Internal Service Interoperability
+
+Even internal services face interoperability challenges:
+- Communication must be secure
+- Interfaces should be understandable and standardized
+- Multiple programming languages must be supported
+  (companies change technologies, different employees have different skills, etc.)
+
+#+ATTR_LATEX: :height 2cm
+file:microservice-icon.svg
+
+** REST Interfaces
+
+(Re)presentational (S)tate (T)ransfer is an architectural style designed for the web
+- Many forms, typically JSON/Avro/Protobuf over HTTPS
+- URLs arranged into "nouns" with HTTP Methods representing "verbs"
+- By itself, too vague to be uniform
+- Minor performance penalty for increased clarity
+
+#+ATTR_LATEX: :width 12cm
+file:REST_API.png
+
+* What is OpenAPI?
+
+** OpenAPI
+
+*** Logos                                                :B_column:BMCOL:
+    :PROPERTIES:
+    :BEAMER_env: column
+    :BEAMER_col: 0.25
+    :END:
+
+#+ATTR_LATEX: :width 3cm
+file:openapi-1.svg
+
+*** Text                                                :B_column:BMCOL:
+    :PROPERTIES:
+    :BEAMER_env: column
+    :BEAMER_col: 0.75
+    :END:
+
+- OpenAPI Specification is open standard to define HTTP APIs for external consumers
+  - Builds upon JSON Schemas https://json-schema.org/
+  - Builds upon Swagger API description and documentation https://swagger.io/
+  - Split from Swagger in 2016 to become the OpenAPI Initiative, a Linux Foundation project
+
+** Benefits of OpenAPI Usage
+
+- Commonly used by major services, e.g. Stripe, Slack, OpenAI, and 2500+ more: https://apis.guru/
+- Standard formats mean tools can be used to generate client code with:
+  - request and responses
+  - documentation
+  - success and error codes
+- Creating an OpenAPI Specification enables low-effort cross-compatibility
+
+** Benefits of OpenAPI Usage                                    :B_fullframe:
+   :PROPERTIES:
+   :BEAMER_env: fullframe
+   :END:
+
+file:swagger-ui.jpg
+
+** Structure of an OpenAPI Specification
+
+- OpenAPI Specification is itself a JSON/YAML document
+
+*** OpenAPI Major Top-Level Attributes                      :B_ignoreheading:
+    :PROPERTIES:
+    :BEAMER_opt: shrink=60
+    :END:
+
+#+LATEX: \scriptsize
+| *Field Name* | *Type*            | *Description*                                  |
+|--------------+-------------------+------------------------------------------------|
+| servers      | [Server Object]   | Connection info. for servers offering the API. |
+| paths        | Paths Object      | Method-specific actions by URL path.           |
+| components   | Components Object | Re-usable schemas for data by name.            |
+| security     | [Security Object] | Lists security mechanisms to access the API.   |
+
+** Defining API Endpoints - #/paths
+- Mapping from endpoint URL to details
+
+#+LATEX: \scriptsize
+#+BEGIN_SRC js
+{
+  "paths": {
+    "/files/{file_id}": {  // URL => Path Item
+      "delete": {          // Method => Operation
+        "operationId": "deleteFile",  // API-unique identifier
+        "tags": [          // Tags for grouping documentation
+          "OpenAI"
+        ],
+        "summary": "Delete a file.",  // A 1-liner for documentation.
+        "parameters": [  // Request parameters in path/query/header/cookie
+          {
+            "in": "path",
+            "name": "file_id",
+            "required": true,
+            "schema": {  // JSON Schema format is used.
+              "type": "string"
+            },
+            "description": "The ID of the file to use for this request"
+          }
+        ],
+        "responses": {  // Response data format by HTTP status
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteFileResponse"
+                }
+              }
+            }
+          }
+        },
+      },
+      // All other methods: GET, POST, PUT, OPTIONS, HEAD
+      "get": {
+        ...
+      }
+    },
+#+END_SRC
+
+** JSON Schemas
+
+- All data represented in JSON can be described using [[https://datatracker.ietf.org/doc/html/draft-bhutton-json-schema-00][JSON Schemas]].
+- Assertions are used to validate if data matches the schema:
+  - type :: Primitive valies like null, boolean, object, array, number, string
+  - format :: How a type is used, e.g. date-time, email, uri, ipv4, etc.
+  - enum :: Limit value to a predefined list.
+  - allOf :: All validations must be satisfied.
+  - anyOf :: One or more validation must be satisfied.
+  - oneOf :: Exactly one validation must be satisfied.
+
+** JSON Schema Example
+
+*** Schema                                              :B_column:BMCOL:
+    :PROPERTIES:
+    :BEAMER_env: column
+    :BEAMER_col: 0.5
+    :END:
+
+An example schema:
+
+#+LATEX: \scriptsize
+#+BEGIN_SRC js
+{
+  "components": {
+    "schemas": {
+      "CreateChatCompletionResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "choices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "index",
+                "message",
+                "finish_reason"
+              ],
+              "properties": {
+                ...
+#+END_SRC
+
+*** Instance                                           :B_column:BMCOL:
+    :PROPERTIES:
+    :BEAMER_env: column
+    :BEAMER_col: 0.5
+    :END:
+
+An example instance complying with the schema:
+
+#+LATEX: \scriptsize
+#+BEGIN_SRC js
+{
+  "id": "3d5e3472-3057-11ee-89d4-c3a0bb88b99f",
+  "model": "gpt-3.5-turbo",
+  "choices": [
+    {
+      "index": 3,
+      "finish_reason": "length",
+      "message": { ... }
+    },
+    ...
+#+END_SRC
+
+** Schema Primitive Types
+
+- Data Types:
+  - The "type" field corresponds broadly to a JSON type.
+  - The "format" field clarifies details and usage.
+
+| *type*  | *format* | *Description*                  |
+|---------+----------+--------------------------------|
+| integer | int32    | signed 32 bits                 |
+| integer | int64    | signed 64 bits                 |
+| number  | float    |                                |
+| number  | double   |                                |
+| string  | password | A hint to UIs to obscure input |
+
+
+** Defining Common Components - #/components
+
+APIs commonly have shared data types between paths.
+- Error and Created responses
+- Query Parameters
+- Security headers
+
+#+LATEX: \resizebox{\textwidth}{!}{
+|                 |                             |                              |
+| *Field Name*    | *Type*                      | *Description*                |
+|-----------------+-----------------------------+------------------------------|
+| schemas         | string => SchemaObj         | Common schemas by name.      |
+| responses       | string => ResponseObj       | Path responses, e.g. errors. |
+| parameters      | string => ParameterObj      | Request parameter types.     |
+| requestBodies   | string => RequestBodyObj    | Request bodies for POST,PUT. |
+| headers         | string => HeaderObj         | Common data in HTTP headers. |
+| securitySchemes | string => SecuritySchemeObj | E.g. OAuth, Basic Auth, etc. |
+#+LATEX: }
+
+** Reusing Components
+
+- Once defined, components can be referenced by their location in the OpenAPI Schema.
+- Substitute type definition with a "$ref" to a component.
+
+#+BEGIN_SRC js
+"properties": {
+  "index": {
+    "type": "integer"
+  },
+  "message": {
+    "$ref": "#/components/schemas/ChatCompletionResponseMessage"
+  },
+#+END_SRC
+
+* Managing OpenAPI Specs
+
+** Creating OpenAPI Specifications
+
+- D currently lacks tools to extract specification from code.
+- Open question whether it is better to:
+  - Generate specification from code
+    - Easier to keep specification up to date
+    - Language/Framework-specific projects like [[https://springdoc.org/][SpringDoc]]
+  - Generate interfaces from specification
+    - Easier tool integration and multi-language support
+    - Projects like [[https://github.com/OpenAPITools/openapi-generator][openapi-generator]]
+
+** OpenAPI Specification from Code
+
+- Systems like SpringDoc are specific to language (Java) and web framework (Spring)
+- OpenAPI Specification is updated with code changes
+
+#+BEGIN_SRC plantuml :cmdline -tsvg :exports results :file spec.svg
+left to right direction
+skinparam ranksep 10
+skinparam Arrow {
+  Thickness 2
+  FontSize 12
+}
+skinparam Artifact {
+  BorderThickness 2
+  FontSize 14
+}
+
+artifact "Java Code" as Code
+artifact "OpenAPI Spec" as OpenAPISpec
+artifact "JS Client" as JSClient
+artifact "Dart Client" as DartClient
+artifact "Public Docs" as Docs
+
+Code <.. OpenAPISpec : uses
+OpenAPISpec <.. JSClient : uses
+OpenAPISpec <.. DartClient : uses
+OpenAPISpec <.. Docs : uses
+#+END_SRC
+
+#+ATTR_LATEX: :height 5cm
+#+RESULTS:
+[[file:spec.svg]]
+
+** OpenAPI Specification from Code
+
+- What happens when a service is split?
+- What if multiple technologies are used?
+
+#+BEGIN_SRC plantuml :cmdline -tsvg :exports results :file spec2.svg
+left to right direction
+skinparam ranksep 10
+skinparam Arrow {
+  Thickness 2
+  FontSize 12
+}
+skinparam Artifact {
+  BorderThickness 2
+  FontSize 14
+}
+
+artifact "D Code" as DCode #Pink
+artifact "Java Code" as JavaCode #LightSkyBlue
+artifact "Python Code" as PyCode #PaleGreen
+artifact "OpenAPI Spec" as OpenAPISpec #LightSkyBlue
+artifact "JS Client" as JSClient #LightSkyBlue
+artifact "Dart Client" as DartClient #LightSkyBlue
+artifact "Public Docs" as Docs #LightSkyBlue
+
+JavaCode <.. OpenAPISpec : uses
+DCode <.. OpenAPISpec : uses??
+PyCode <.. OpenAPISpec : uses??
+OpenAPISpec <.. JSClient : uses
+OpenAPISpec <.. DartClient : uses
+OpenAPISpec <.. Docs : uses
+#+END_SRC
+
+#+ATTR_LATEX: :height 5cm
+#+RESULTS:
+[[file:spec2.svg]]
+
+** Code from OpenAPI Specification
+
+- Requires clients/servers to regenerate code after changes
+
+#+BEGIN_SRC plantuml :cmdline -tsvg :exports results :file spec3.svg
+left to right direction
+skinparam ranksep 10
+skinparam Arrow {
+  Thickness 2
+  FontSize 12
+}
+skinparam Artifact {
+  BorderThickness 2
+  FontSize 14
+}
+
+artifact "D Code" as DCode #Pink
+artifact "Java Code" as JavaCode #LightSkyBlue
+artifact "Python Code" as PyCode #PaleGreen
+artifact "OpenAPI Spec" as OpenAPISpec
+artifact "JS Client" as JSClient
+artifact "Dart Client" as DartClient
+artifact "Public Docs" as Docs
+
+JavaCode ..> OpenAPISpec : uses
+DCode ..> OpenAPISpec : uses
+PyCode ..> OpenAPISpec : uses
+OpenAPISpec <.. JSClient : uses
+OpenAPISpec <.. DartClient : uses
+OpenAPISpec <.. Docs : uses
+#+END_SRC
+
+#+ATTR_LATEX: :height 5cm
+#+RESULTS:
+[[file:spec3.png]]
+
+** Java SpringDoc OpenAPI Annotations
+   :PROPERTIES:
+   :BEAMER_opt: shrink=30
+   :END:
+#+BEGIN_SRC java
+@SecurityScheme(name = "petstore_auth", type = SecuritySchemeType.OAUTH2, flows = @OAuthFlows(implicit = @OAuthFlow(authorizationUrl = "https://petstore3.swagger.io/oauth/authorize", scopes = {
+                @OAuthScope(name = "write:pets", description = "modify pets in your account"),
+                @OAuthScope(name = "read:pets", description = "read your pets") })))
+@Tag(name = "pet", description = "the pet API")
+public interface PetApi {
+        @Operation(summary = "Add a new pet to the store",
+            description = "Add a new pet to the store",
+            security = { @SecurityRequirement(name = "petstore_auth", scopes = { "write:pets", "read:pets" }) },
+            tags = { "pet" })
+        @ApiResponses(value = {
+            @ApiResponse(responseCode = "200",
+                description = "Successful operation",
+                content = {
+                  @Content(mediaType = "application/xml", schema = @Schema(implementation = Pet.class)),
+                  @Content(mediaType = "application/json", schema = @Schema(implementation = Pet.class)) }),
+            @ApiResponse(responseCode = "405", description = "Invalid input")
+        })
+        @PostMapping(value = "/pet", consumes = { "application/json", "application/xml", "application/x-www-form-urlencoded" })
+        default void addPet(
+            @Parameter(description = "Create a new pet in the store", required = true) @Valid @RequestBody Pet pet) {
+          // return getDelegate().addPet(pet);
+        }
+
+#+END_SRC
+
+* Useful D Features
+
+** Mixins
+
+The ~mixin~ expression takes a list of ~string~ arguments representing a complete D statement and
+turns them into code.
+- Can make use of variables known at compile-time, e.g. those provided by templates
+- Useful for code that declares variables or methods with parameterized identifiers
+
+#+BEGIN_SRC d
+mixin("private bool _myValue;");
+
+string N = "yourVal";
+mixin("private bool", "_", N, ";");
+#+END_SRC
+
+** Mixin Templates
+
+A ~mixin template~ encloses declarations of fields, functions, classes, structs, etc. When referenced
+in code with compile-time parameters, it inserts those declarations in the scope in which it was
+called.
+- *Mixin Templates*: Re-useable code generation
+
+*** Source                                             :B_column:BMCOL:
+    :PROPERTIES:
+    :BEAMER_env: column
+    :BEAMER_col: 0.6
+    :END:
+
+#+LATEX: \scriptsize
+#+BEGIN_SRC d
+import std.traits : isAssignable;
+import std.string : capitalize;
+import std.typecons : Nullable;
+
+mixin template AddField(C, T, string N) {
+  // Declare the variable.
+  mixin(T, " ", N, ";");
+  mixin(  // Define  setter function.
+      C, " set", capitalize(N), "(ST)(ST val) ",
+      "if (isAssignable!(T, ST)) {",
+      "  this.", N, " = val;",
+      "  return this;",
+      "}");
+}
+#+END_SRC
+
+*** Usage                                              :B_column:BMCOL:
+    :PROPERTIES:
+    :BEAMER_env: column
+    :BEAMER_col: 0.4
+    :END:
+
+#+LATEX: \scriptsize
+#+BEGIN_SRC d
+// Example usage
+class Fish {
+  mixin AddField!(typeof(this),
+      Nullable!int, "age");
+  mixin AddField!(typeof(this),
+      Nullable!string, "job");
+}
+
+unittest {
+  import std.stdio;
+  Fish f = new Fish()
+      .setAge(42)
+      .setJob("Accountant");
+  writeln(f.age, " ", f.job);
+}
+#+END_SRC
+
+** Static ForEach
+
+~static foreach~ statements generate repeated lines of code in the same scope in which they occur.
+- *static foreach*: Loop over compile-time data, such as class members.
+
+*** Source                                             :B_column:BMCOL:
+    :PROPERTIES:
+    :BEAMER_env: column
+    :BEAMER_col: 0.6
+    :END:
+
+#+LATEX: \scriptsize
+#+BEGIN_SRC d
+import std.traits : Fields, FieldNameTuple,
+                    BaseClassesTuple;
+// Add setters for a single class.
+mixin template AddClassSetters(C) {
+  static foreach (
+      size_t i; iota(Fields!(C).length)) {
+    mixin AddSetter!(
+        Fields!(C)[i], FieldNameTuple!(C)[i]);
+  }
+}
+// Add setters for full class hierarchy.
+mixin template AddSetters(C) {
+  static foreach (B; BaseClassesTuple!(C)) {
+    mixin AddSetters!(B);
+  }
+  mixin AddClassSetters!(C);
+}
+#+END_SRC
+
+*** Usage                                              :B_column:BMCOL:
+    :PROPERTIES:
+    :BEAMER_env: column
+    :BEAMER_col: 0.4
+    :END:
+
+#+LATEX: \scriptsize
+#+BEGIN_SRC d
+class A {
+  int a1;
+  string a2;
+}
+
+class B : A {
+  float b1;
+  mixin AddSetters!(typeof(this));
+}
+
+unittest {
+  import std.stdio;
+  B b = new B()
+    .setA1(3)
+    .setA2("ham")
+    .setB1(2.9);
+}
+#+END_SRC
+
+* D Project: openapi-client
+
+** Simple OpenAPI Client in D
+
+[[https://code.dlang.org/][code.dlang.org]] project: [[https://code.dlang.org/packages/openapi-client][openapi-client]]
+- Consistent interface created/updated in seconds
+- Creates data types from OpenAPI Specification
+- Creates client to call endpoints
+- Configurable server and security controls
+
+#+NAME: openapi-client-flow
+#+HEADER: :imagemagick t :results file graphics :fit yes :border 0cm
+#+HEADER: :iminoptions -density 800 :imoutoptions -geometry 800
+#+HEADER: :headers '("\\usepackage{tikz} \\usetikzlibrary{positioning, backgrounds, fit, shapes.geometric, shapes.symbols, calc}")
+#+BEGIN_SRC latex :file "openapi-client-flow.png"
+\begin{tikzpicture}
+  \node[draw, align=center, fill=blue!20] (spec) {Stripe\\OpenAPI\\Specification};
+  \node[draw, circle, right=of spec] (plus1) {$+$};
+  \node[draw, tape, align=center, above=of plus1, fill=green!20] (openapi-client) {OpenAPI\\Client};
+
+  \draw[thick, ->] (spec) -- (plus1);
+  \draw[thick, ->] (openapi-client) -- (plus1);
+
+  \node[draw, align=center, right=of plus1, fill=green!20, xshift=20] (stripe-client) {D Stripe\\Client};
+  \draw[thick, ->] (plus1) -- (stripe-client) node[midway, above] {generates};
+
+  \node[draw, align=center, shape=cloud, right=of stripe-client, fill=blue!20] (stripe) {Stripe\\Service};
+  \draw[thick, dotted, ->] (stripe-client) -- (stripe) node[midway, above] {uses};
+
+  \node[draw, align=center, shape=star, star points=5, above=of stripe-client, fill=yellow!30] (app) {Your\\App};
+  \draw[thick, dotted, ->] (app) -- (stripe-client) node[midway,right] {uses};
+\end{tikzpicture}
+#+END_SRC
+
+#+ATTR_LATEX: :width 0.9\textwidth
+#+RESULTS: openapi-client-flow
+[[file:openapi-client-flow.png]]
+
+** openai-client: Creating an OpenAI Client
+
+1. Download the OpenAPI Specification from GitHub:
+   : curl https://raw.githubusercontent.com/openai/
+   :   openai-openapi/master/openapi.yaml
+   :   -o openapi.yaml
+2. Convert to JSON format:
+   : yq openapi.yaml -o json > openapi.json
+3. Invoke ~openapi-client~ to generate code:
+   : dub run openapi-client@2.0.1 --
+   :   --openApiSpec=json/openapi.json
+   :   --packageRoot=openai
+4. Done!
+
+** openai-client: Generated Models
+
+#+BEGIN_SRC d
+// File: openapi/model/CreateImageEditRequest.d
+class CreateImageEditRequest {
+  /**
+   * The number of images to generate. Must be between 1 and 10.
+   */
+  @vibeName("n")
+  @vibeOptional
+  @vibeEmbedNullable
+  Nullable!(int) n;
+
+  /**
+   * The image to edit. Must be a valid PNG file, less than 4MB, and square. If mask is not
+   * provided, image must have transparency, which will be used as the mask.
+   */
+  @vibeName("image")
+  @vibeOptional
+  string image;
+
+  // ...
+#+END_SRC
+
+** openai-client: Generated Models
+- Optional fields are ~Nullable~.
+- Nested objects as static inner classes
+- Documentation included
+- Builder pattern used to ease object creation
+
+** openai-client: Generated Services
+
+#+BEGIN_SRC d
+// File: openai/service/image_edits_service.d
+/**
+ * Service to make REST API calls to paths beginning with: /images/edits
+ */
+class ImagesEditsService {
+  /**
+   * Creates an edited or extended image given an original image and a prompt.
+   * See_Also: HTTP POST `/images/edits`
+   */
+  void createImageEdit(
+      CreateImageEditRequest requestBody,
+      CreateImageEditResponseHandler responseHandler,
+      ) {
+    ApiRequest requestor = new ApiRequest(
+        HTTPMethod.POST,
+        Servers.getServerUrl(),
+        "/images/edits");
+    requestor.setHeaderParam("Content-Type", "multipart/form-data");
+    Security.apply(requestor);
+    requestor.makeRequest(requestBody, responseHandler);
+  }
+#+END_SRC
+
+** openai-client: Using Services
+   :PROPERTIES:
+   :BEAMER_opt: shrink=15
+   :END:
+
+#+BEGIN_SRC d
+// Service classes group API functionality by path, e.g. /completions
+auto service = new CompletionsService();
+// Invoke an API endpoint, this one is for POST /completions
+service.createCompletion(
+    // Define the request body with a builder.
+    CreateCompletionRequest.builder()
+        .model("text-davinci-003")
+        .prompt(Json("What is the cutest breed of rabbit? "))
+        .echo(true)
+        .maxTokens(2048)
+        .build(),
+    // ResponseHandlers have an attribute for each valid response.
+    CompletionsService.CreateCompletionResponseHandler.builder()
+        .handleResponse200((CreateCompletionResponse response) {
+          logDebug("%s", serializeToJson(response).toString());
+        })
+        .build());
+#+END_SRC
+
+** openai-client: Server Response
+
+#+BEGIN_SRC js
+{
+  "object": "text_completion",
+  "created": 1690899388,
+  "usage": {
+    "prompt_tokens": 10,
+    "total_tokens": 68,
+    "completion_tokens": 58
+  },
+  "id": "cmpl-7ikSiD1IqwHn4XMwg8K04lvx2DnL9",
+  "model": "text-davinci-003",
+  "choices": [
+    {
+      "index": 0,
+      "text": "What is the cutest breed of rabbit?
+
+               The debate for which rabbit breed is the cutest is subjective,
+               as it will depend on what the individual finds appealing. Some
+               popular breeds that are known for their cute looks include the
+               Holland Lop, Mini Rex, Jersey Wooly, Mini Lop, and Netherland Dwarf.",
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ]
+}
+#+END_SRC
+
+** Future Plans
+
+*** Text                                                :B_column:BMCOL:
+    :PROPERTIES:
+    :BEAMER_env: column
+    :BEAMER_col: 0.5
+    :END:
+
+- Move spec-first efforts to more mature projects like [[https://github.com/OpenAPITools/openapi-generator][openapi-generator]]
+  - Add D client and server-stub [[https://github.com/OpenAPITools/openapi-generator/wiki/How-to-add-a-generator-for-a-new-language-or-framework][generators]]
+- Consider code-first integration via annotations in frameworks like [[https://vibed.org/][Vibe.d]]
+
+*** Image                                                :B_column:BMCOL:
+    :PROPERTIES:
+    :BEAMER_env: column
+    :BEAMER_col: 0.5
+    :END:
+
+#+LATEX: \resizebox{\textwidth}{!}{
+file:openapi-generator-logo.svg
+#+LATEX: }
+
+** Thank You
+
+Thank you for your interest and attention!
