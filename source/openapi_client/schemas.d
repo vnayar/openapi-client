@@ -56,8 +56,29 @@ JsonSchema[string] jsonSchemaByRef;
  */
 string getClassNameFromSchemaName(string schemaName) {
   static immutable RedBlackTree!string RESERVED_CLASSES = new RedBlackTree!string([
-          "Error"
-                                                                                   ]);
+        "cpp_type_info_ptr",
+        "Error",
+        "Exception",
+        "Object",
+        "Throwable",
+        "TypeInfo",
+        "TypeInfo_Array",
+        "TypeInfo_AssociativeArray",
+        "TypeInfo_Class",
+        "TypeInfo_Const",
+        "TypeInfo_Delegate",
+        "TypeInfo_Enum",
+        "TypeInfo_Function",
+        "TypeInfo_Interface",
+        "TypeInfo_Invariant",
+        "TypeInfo_Pointer",
+        "TypeInfo_Shared",
+        "TypeInfo_StaticArray",
+        "TypeInfo_Struct",
+        "TypeInfo_Tuple",
+        "TypeInfo_Vector",
+        "TypeInfo_Wild"
+      ]);
   string className = toUpperCamelCase(tr(schemaName, ".", "_"));
   if (className in RESERVED_CLASSES)
     return className ~ "_";
@@ -340,7 +361,8 @@ void generateSchemaInnerClasses(
     }
     else {
       // We will have to make a class/struct out of this type from its name.
-      string className = (schema.title !is null) ? schema.title.toUpperCamelCase() : defaultName;
+      string className = getClassNameFromSchemaName(
+          (schema.title !is null) ? schema.title.toUpperCamelCase() : defaultName);
       if (className is null)
         throw new Exception("Creating an Inner Class for property requires a title or default name!");
       if (className in context) {
@@ -442,9 +464,9 @@ string getSchemaCodeType(OasSchema schema, string defaultName = null, bool requi
       else {
         // We will have to make a class/struct out of this type from its name.
         if (schema.title !is null)
-          return schema.title.toUpperCamelCase();
+          return getClassNameFromSchemaName(schema.title.toUpperCamelCase());
         else if (defaultName !is null)
-          return defaultName;
+          return getClassNameFromSchemaName(defaultName);
         throw new Exception("Creating a named object type requires a title or defaultName!");
       }
     }
