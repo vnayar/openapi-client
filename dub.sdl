@@ -1,5 +1,5 @@
 name "openapi-client"
-description "Produces HTTP client code from an OpenAPI Specification."
+description "Produces HTTP client code from an OpenAPI/Swagger 3.0 Specification."
 authors "Vijay Nayar"
 copyright "Copyright © 2022, Vijay Nayar"
 license "LGPL"
