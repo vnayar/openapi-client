@@ -153,6 +153,7 @@ static immutable RedBlackTree!string RESERVED_WORDS = new RedBlackTree!string([
       "continue",
       "dchar",
       "debug",
+      "default",
       "delegate",
       "double",
       "dstring",
@@ -180,10 +181,13 @@ static immutable RedBlackTree!string RESERVED_WORDS = new RedBlackTree!string([
       "nothrow",
       "package",
       "private",
+      "protected",
       "public",
       "pure",
       "real",
+      "ref",
       "scope",
+      "short",
       "string",
       "struct",
       "switch",
@@ -394,6 +398,10 @@ void generateSchemaInnerClasses(
   }
   // The type might be an array and it's schema could be hidden beneath.
   else if (schema.type == "array" || schema.items !is null) {
+    if (schema.items is null) {
+      throw new Exception("Schema missing 'items' definition for array item with defaultName="
+          ~ (defaultName is null ? "" : defaultName));
+    }
     generateSchemaInnerClasses(buffer, schema.items, prefix, defaultName, context);
   }
   // Sometimes data has no explicit properties, but we can infer them from validation data.
@@ -417,7 +425,8 @@ string getSchemaCodeType(OasSchema schema, string defaultName = null, bool requi
     return getClassNameFromSchemaName(schemaName);
   }
   // First check if we have a primitive type.
-  else if (schema.type !is null) {
+  // See: https://swagger.io/docs/specification/data-models/data-types/
+  else if (schema.type !is null || schema.items || schema.properties) {
     if (schema.type == "integer") {
       if (schema.format == "int32")
         return "int";

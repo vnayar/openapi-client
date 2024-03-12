@@ -3,11 +3,11 @@ description "Produces HTTP client code from an OpenAPI/Swagger 3.0 Specification
 authors "Vijay Nayar"
 copyright "Copyright © 2022, Vijay Nayar"
 license "LGPL"
-dependency "vibe-d:http" version="~>0.9"
-dependency "vibe-d:data" version="~>0.9"
+dependency "vibe-d:http" version="~>0.10"
+dependency "vibe-d:data" version="~>0.10"
 dependency "builder" version="~>0.2"
 targetPath "target"
-// Currently vibe 0.9.5 contains a large number of deprecation warnings.
+// Currently vibe contains a large number of deprecation warnings.
 buildRequirements "silenceDeprecations"
 
 # The project can be executed in order to generate OpenAPI client code.

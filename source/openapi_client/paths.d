@@ -1,13 +1,14 @@
 module openapi_client.paths;
 
 import vibe.data.json : Json, deserializeJson;
+import vibe.core.log : logDebug;
 
 import std.container.rbtree : RedBlackTree;
 import std.file : mkdir, mkdirRecurse, write;
 import std.array : appender, split, Appender, join;
 import std.algorithm : skipOver;
 import std.path : buildNormalizedPath, dirName;
-import std.string : tr, capitalize;
+import std.string : tr, capitalize, indexOf;
 import std.range : tail, takeOne;
 import std.stdio : writeln;
 import std.regex : regex, replaceAll;
@@ -131,7 +132,7 @@ void generateModuleHeader(
     put("import vibe.http.client : requestHTTP, HTTPClientRequest, HTTPClientResponse;\n");
     put("import vibe.http.common : HTTPMethod;\n");
     put("import vibe.stream.operations : readAllUTF8;\n");
-    put("import vibe.data.serialization : optional;\n");
+    put("import vibe.data.serialization : vibeName = name, vibeOptional = optional, vibeEmbedNullable = embedNullable;\n");
     put("import vibe.data.json : Json, deserializeJson;\n");
     put("import builder : AddBuilder;\n");
     put("\n");
@@ -314,7 +315,7 @@ string generateRequestParamType(
   OasParameter[] parameters = operationEntry.operation.parameters;
   if (parameters is null || parameters.length == 0)
     return null;
-  string className = operationEntry.operation.operationId ~ "Params";
+  string className = toUpperCamelCase(operationEntry.operation.operationId) ~ "Params";
   buffer.put(prefix ~ "static class " ~ className ~ " {\n");
   foreach (OasParameter parameter; operationEntry.operation.parameters) {
     writeCommentBlock(buffer, parameter.description, prefix ~ "  ", 100);
@@ -359,26 +360,37 @@ ResponseHandlerType generateResponseHandlerType(
     // Create a handler method that can be defined for each HTTP status code and its corresponding
     // response body type.
     foreach (string statusCode, OasResponse oasResponse; responses) {
+      logDebug("Generating response for operationId=%s statusCode=%s",
+          operationEntry.operation.operationId, statusCode);
       // Read the content type and pick out the first media type entry.
       string contentType;
       OasMediaType mediaType;
       foreach (pair; oasResponse.content.byKeyValue()) {
+        logDebug("Checking contentType: %s", pair.key);
+        if (pair.key.indexOf("/") == -1 || pair.value.schema is null) {
+          logDebug("Skipping content type %s due to invalid type or missing schema.", pair.key);
+          continue;
+        }
         contentType = pair.key;
         mediaType = pair.value;
         break;
       }
+      import vibe.data.json : serializeToJsonString;
+      logDebug("Found mediaType: %s", serializeToJsonString(mediaType));
       // Determine if an inner class needs to be defined for the type, or if it references an
       // existing schema.
       string defaultResponseSourceType =
           operationEntry.operation.operationId ~ "Response" ~ toUpperCamelCase(statusCode);
-      string responseSourceType = getSchemaCodeType(mediaType.schema, defaultResponseSourceType);
+      string responseSourceType = (mediaType) ? getSchemaCodeType(mediaType.schema, defaultResponseSourceType) : null;
 
       // Generate an inner class if needed, otherwise, do nothing.
-      generateSchemaInnerClasses(buffer, mediaType.schema, prefix ~ "  ", defaultResponseSourceType);
+      if (mediaType) {
+        generateSchemaInnerClasses(buffer, mediaType.schema, prefix ~ "  ", defaultResponseSourceType);
+      }
 
       writeCommentBlock(buffer, oasResponse.description, prefix ~ "  ");
       string handlerMethodName = "handleResponse" ~ toUpperCamelCase(statusCode);
-      put(prefix ~ "  void delegate(" ~ responseSourceType ~ " response) "
+      put(prefix ~ "  void delegate(" ~ (responseSourceType ? (responseSourceType ~ " response") : "") ~ ") "
           ~ handlerMethodName ~ ";\n\n");
 
       // Save data needed to map response codes to methods to call.

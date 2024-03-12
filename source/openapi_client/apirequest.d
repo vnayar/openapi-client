@@ -94,7 +94,12 @@ class ApiRequest {
   }
 
   /// ditto
-  void setPathParam(T)(string key, Nullable!T value) {
+  void setPathParam(T)(string key, T value) {
+    setPathParam(key, value.to!string);
+  }
+
+  /// ditto
+  void setPathParam(T : Nullable!T)(string key, Nullable!T value) {
     setPathParam(key, value.get);
   }
 
