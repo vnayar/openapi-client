@@ -69,6 +69,28 @@ void writeSecurityFiles(OasDocument oasDocument, string targetDir, string packag
         } else {
           writeln("Warning: Unsupported security scheme type=http, scheme=", securityScheme.scheme);
         }
+      } else if (securityScheme.type == "apiKey") {
+        if (!securityScheme.in_ || !securityScheme.name) {
+          throw new Exception("SecurityScheme '" ~ securitySchemeName
+              ~ "', is missing required parameter 'in' or 'name'.");
+        }
+        put("  /**\n");
+        put("   * Enable and configure an API Key for authentication.\n");
+        put("   *\n");
+        put("   * See_Also: https://swagger.io/specification/#security-scheme-object\n");
+        put("   */\n");
+        put("  static void configure" ~ toUpperCamelCase(securitySchemeName)
+            ~ "(string apiKey) {\n");
+        put("    applySecurityF = (ApiRequest request) {\n");
+        if (securityScheme.in_ == "header") {
+          put("      request.setHeaderParam(\"" ~ securityScheme.name ~ "\", apiKey);\n");
+        } else if (securityScheme.in_ == "query") {
+          put("      request.setQueryParam(\"" ~ securityScheme.name ~ "\", apiKey);\n");
+        } else {
+          put("      throw new Exception(\"Security apiKey unsupported in: \" ~ securityScheme.in_);\n");
+        }
+        put("    };\n");
+        put("  }\n\n");
       } else {
         writeln("Warning: Unsupported security scheme type '", securityScheme.type, "'.");
       }

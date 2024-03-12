@@ -126,6 +126,9 @@ class ApiRequest {
     }
   }
 
+  // TODO
+  // void setCookieParam(string key, string value) { ... }
+
   /**
    * Return the URL of an API Request, resolving any path and query-string parameters.
    */

@@ -27,7 +27,6 @@ void main() {
     return;
 
   OasDocument oasDocument = readText(openApiSpec)
-      .parseJsonString()
       .deserializeJson!OasDocument;
 
   writeSchemaFiles(oasDocument, targetDir, packageRoot);
