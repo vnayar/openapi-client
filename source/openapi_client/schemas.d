@@ -418,6 +418,10 @@ void generateSchemaInnerClasses(
  *     for that class.
  */
 string getSchemaCodeType(OasSchema schema, string defaultName = null, bool required = true) {
+  // Default to string if no schema exists.
+  if (schema is null) {
+    return "string";
+  }
   // This could be a reference to an existing type.
   if (schema.ref_ !is null) {
     string schemaName = getSchemaNameFromRef(schema.ref_);

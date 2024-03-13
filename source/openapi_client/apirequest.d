@@ -134,7 +134,7 @@ class ApiRequest {
    */
   string getUrl() {
     URL url = URL(serverUrl);
-    url.path = url.path ~ resolveTemplate(pathUrl[1..$], pathParams);
+    url.path = url.path ~ resolveTemplate(pathUrl, pathParams);
     url.queryString = queryParams.byKeyValue()
         .map!(pair => pair.key ~ "=" ~ pair.value)
         .join("&");

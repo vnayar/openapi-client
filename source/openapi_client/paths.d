@@ -319,13 +319,8 @@ string generateRequestParamType(
   buffer.put(prefix ~ "static class " ~ className ~ " {\n");
   foreach (OasParameter parameter; operationEntry.operation.parameters) {
     writeCommentBlock(buffer, parameter.description, prefix ~ "  ", 100);
-    if (parameter.schema !is null) {
-      generateSchemaInnerClasses(buffer, parameter.schema, prefix ~ "  ");
-      buffer.put(prefix ~ "  " ~ getSchemaCodeType(parameter.schema, null));
-    } else {
-      buffer.put(prefix ~ "  string");
-    }
-    buffer.put(" " ~ getVariableName(parameter.name) ~ ";\n\n");
+    generateSchemaInnerClasses(buffer, parameter.schema, prefix ~ "  ");
+    generatePropertyCode(buffer, parameter.name, parameter.schema, prefix ~ "  ", parameter.required);
   }
   buffer.put(prefix ~ "  mixin AddBuilder!(typeof(this));\n\n");
   buffer.put(prefix ~ "}\n\n");
